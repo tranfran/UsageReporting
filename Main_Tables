@@ -1,0 +1,47 @@
+import sqlite3
+from datetime import datetime
+from xlsxwriter.workbook import Workbook
+import calendar
+import os
+conn = sqlite3.connect('Database_UsageReport.db')
+c = conn.cursor()
+currentMonth = str(calendar.month_abbr[datetime.now().month - 1].upper())
+# currentMonth = str(calendar.month_abbr[5].upper())
+currentYear = str(datetime.now().year)
+# path = r"C:\Users\csftn\USER_FRANCIS_TRAN\USAGE REPORT DATA\PREVIOUS MONTHS"
+path = r"M:\8. Development\8. WIP Retail Services\Usage Report\SUPPLIER USAGE"
+subpath = currentYear
+subsubpath = currentMonth
+if not os.path.exists(os.path.join(path, subpath)):
+    os.mkdir(os.path.join(path, subpath))
+if not os.path.exists(os.path.join(path, subpath, subsubpath)):
+    os.mkdir(os.path.join(path, subpath, subsubpath))
+savepath = os.path.join(path,subpath,subsubpath)
+#######################################################
+def Workbook_creation(table_name):
+    workbook = Workbook(savepath + '\\' + table_name + ".xlsx")
+    worksheet = workbook.add_worksheet()
+    query = "SELECT * FROM {}".format(table_name)
+    c.execute(query)
+    mysel = c.execute(query)
+    names = list(map(lambda x: x[0], mysel.description))
+    col = 0
+    for i in names:
+        worksheet.write(0, col,i)
+        col +=1
+    for i, row in enumerate(mysel):
+        col = 0
+        i += 1
+        for j, value in enumerate(row):
+            worksheet.write(i, col, row[j])
+            col += 1
+    workbook.close()
+    print(table_name + " Workbook has been created")
+
+Table_List = ["Data_Table","Ldap_Table","ID_Table","Company_Table","USER_ID","Partial_Translation"]
+for table in Table_List:
+    Workbook_creation(table)
+
+conn.commit()
+conn.close()
+
