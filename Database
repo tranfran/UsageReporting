@@ -1,0 +1,35 @@
+import sqlite3
+conn = sqlite3.connect('Database_UsageReport.db')
+c = conn.cursor()
+#######################################################
+#Delete TABLE
+def drop_tables():
+    c.execute("DROP TABLE Data_Table")
+    c.execute("DROP TABLE Ldap_Table")
+    c.execute("DROP TABLE ID_Table")
+    c.execute("DROP TABLE Company_Table")
+    # c.execute("DROP TABLE Partial_Translation") # Keep Commented List is allowed to continuously grow
+    c.execute("DROP TABLE USER_ID") # Keep Commented, List is allowed to continuously Grow
+def Create_Tables():
+    c.execute('CREATE TABLE IF NOT EXISTS Data_Table(Organization VARCHAR,User_ID VARCHAR,Report_ID VARCHAR,Report_Title VARCHAR,Datetime VARCHAR,Month INTEGER,Day INTEGER,Year INTEGER,Count INTEGER,Company_Name VARCHAR,LDAP VARCHAR)')
+    c.execute('CREATE TABLE IF NOT EXISTS Ldap_Table(LDAP VARCHAR, Company_Name VARCHAR, Category VARCHAR)')
+    c.execute('CREATE TABLE IF NOT EXISTS ID_Table(User_ID VARCHAR, LDAP VARCHAR, Company_Name VARCHAR)')
+    c.execute('CREATE TABLE IF NOT EXISTS Company_Table(Company_Name VARCHAR)')
+    c.execute('CREATE TABLE IF NOT EXISTS Partial_Translation(Partial_Definition VARCHAR,Report_Name VARCHAR)')
+    c.execute('CREATE TABLE IF NOT EXISTS USER_ID(USER_ID VARCHAR, PASSWORD VARCHAR, FIRST_NAME VARCHAR, LAST_NAME VARCHAR, '
+              'EMAIL VARCHAR, LDAP VARCHAR, COMPANY VARCHAR, RETAIL_CLIENT VARCHAR, TITLE VARCHAR, '
+              'REGION VARCHAR, DEPT VARCHAR, DIRECTOR VARCHAR,VP VARCHAR, VP_DEPT VARCHAR, EVP VARCHAR, EVP_DEPT VARCHAR)')
+def Create_Indexes():
+    c.execute('CREATE UNIQUE INDEX IF NOT EXISTS index_ID_Ldap_Table ON Ldap_Table(LDAP, Company_Name, Category)')
+    c.execute('CREATE UNIQUE INDEX IF NOT EXISTS index_ID_Table on ID_Table(User_ID, LDAP,Company_Name)')
+    c.execute('CREATE UNIQUE INDEX IF NOT EXISTS index_Company_Table on Company_Table(Company_Name)')
+    c.execute('CREATE UNIQUE INDEX IF NOT EXISTS Unique_Partial_Translation on Partial_Translation(Partial_Definition,Report_Name)')
+    c.execute('CREATE UNIQUE INDEX IF NOT EXISTS Unique_USER_ID on USER_ID(USER_ID, PASSWORD)')
+
+#Call Database Function
+drop_tables()
+Create_Tables()
+Create_Indexes()
+#######################################################
+conn.commit()
+conn.close()
