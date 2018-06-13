@@ -1,0 +1,151 @@
+import sqlite3
+from datetime import datetime
+import csv
+
+conn = sqlite3.connect('Database_UsageReport.db')
+c = conn.cursor()
+
+prohibitlist = ['LD_SOBEYS_ANDERSON_WATTS_IRI_ADMIN', 'LD_UNIFY_SOBEYS_NATL_Admin', 'LD_SOBEYS_CHURCH_DWIGHT_IRI_ADMIN',
+                'LD_SOBEYS_CLIF_BAR_IRI_ADMIN', 'LD_SOBEYS_CONCORD_SALES_IRI_ADMIN', 'LD_SOBEYS_DARE_IRI_ADMIN',
+                'LD_SOBEYS_DR_OETKER_IRI_ADMIN',
+                'LD_SOBEYS_FERRERO_IRI_ADMIN', 'LD_SOBEYS_HAIN_CELESTIAL_IRI_ADMIN', 'LD_SOBEYS_LSI_IRI_ADMIN',
+                'LD_SOBEYS_NATURES_PATH_IRI_ADMIN',
+                'LD_SOBEYS_NESTLE_WATERS_IRI_ADMIN', 'LD_SOBEYS_Natures_Touch_IRI_Admin',
+                'LD_SOBEYS_OCEAN_BRANDS_IRI_ADMIN', 'LD_SOBEYS_SUN_RYPE_IRI_ADMIN',
+                'LD_SOBEYS_STAR_MARKETING_IRI_ADMIN', 'LD_SOBEYS_STORCK_IRI_ADMIN', 'LD_SOBEYS_SUMMER_FRESH_IRI_ADMIN',
+                'LD_SOBEYS_Tetley_IRI_Admin',
+                'LD_SOBEYS_TLS_IRI_ADMIN', 'LD_SOBEYS_Valeant_IRI_Admin', 'LD_SOBEYS_WN_PHARMACEUTICALS_IRI_ADMIN',
+                'LD_SOBEYS_WRIGLEY_IRI_ADMIN',
+                'LD_SOBEYS_WT_Hawkins_Admin', 'LD_DEV_ADMIN', 'LD_QA_User', 'LD_SOBEYS_AGROPUR_IRI_ADMIN',
+                'LD_SOBEYS_ALL_MARKET_IRI_ADMIN', 'LD_SOBEYS_ATKINS_NUTRITIONALS_IRI_ADMIN',
+                'LD_SOBEYS_BARILLA_IRI_ADMIN', 'LD_SOBEYS_CONSTELLATION_BRAND_IRI_ADMIN',
+                'LD_SOBEYS_Cascade_IRI_Admin', 'LD_SOBEYS_PINTYS_IRI_ADMIN', 'LD_SOBEYS_SELECT_BRAND_IRI_ADMI',
+                'LD_QA_Admin', 'LD_SOBEYS_ACH_FOODS_IRI_ADMIN',
+                'LD_SOBEYS_CARGILL_MEAT_SOLUTIONS_IRI_ADMIN', 'LD_SOBEYS_COMBE_IRI_ADMIN',
+                'LD_SOBEYS_Genuine_Health_IRI_Admin', 'LD_SOBEYS_GSK_NOVARTIS_IRI_ADMIN',
+                'LD_SOBEYS_INOVATA_FOODS_IRI_ADMIN', 'LD_SOBEYS_Italpasta_Admin', 'LD_SOBEYS_KELLOGG_IRI_ADMIN',
+                'LD_SOBEYS_LAND_O_LAKES_IRI_ADMIN',
+                'LD_SOBEYS_MANN_PACKING_IRI_ADMIN', 'LD_SOBEYS_MARS_IRI_ADMIN', 'LD_SOBEYS_Maple_Lodge_Farms_IRI_Admin',
+                'LD_SOBEYS_NATIONAL_IMPORTERS_IRI_ADMIN',
+                'LD_SOBEYS_Nestle_Purina_IRI_Admin', 'LD_SOBEYS_Olivieri_IRI_Admin', 'LD_SOBEYS_Pillers_IRI_Admin',
+                'LD_SOBEYS_Triani_Wines_IRI_Admin',
+                'LD_CS_User', 'LD_SOBEYS_Fiasco_Gelato_IRI_Admin', 'LD_SOBEYS_KRUGER_IRI_ADMIN',
+                'LD_SOBEYS_UNIFY_POWER_USER',
+                'LD_SOBEYS_UO_Author', 'LD_SOBEYS_UI_ADMIN', 'LD_SOBEYS_ABBOTT_IRI_ADMIN', 'LD_CS_Admin',
+                'LD_SOBEYS_CANADA_BREAD_IRI_ADMIN', 'LD_SOBEYS_CANADA_DRY_MOTTS_IRI_ADMIN',
+                'LD_SOBEYS_CLOROX_IRI_ADMIN', 'LD_SOBEYS_COCA_COLA_IRI_ADMIN',
+                'LD_SOBEYS_CONAGRA_IRI_ADMIN', 'LD_SOBEYS_COLGATE_PALMOLIVE_IRI_ADMIN',
+                'LD_SOBEYS_DARE_FOODS_IRI_ADMIN', 'LD_SOBEYS_E_D_SMITH_IRI_ADMIN',
+                'LD_SOBEYS_FRENCHS_FOOD_IRI_ADMIN', 'LD_SOBEYS_DART_IRI_ADMIN', 'LD_SOBEYS_EARTHS_OWN_IRI_ADMIN',
+                'LD_SOBEYS_GENERAL_MILLS_IRI_ADMIN', 'LD_SOBEYS_FREYBE_IRI_ADMIN', 'LD_SOBEYS_HERSHEY_IRI_ADMIN',
+                'LD_SOBEYS_HORIZON_IRI_ADMIN',
+                'LD_SOBEYS_IRVING_IRI_ADMIN', 'LD_SOBEYS_GILDAN_APPAREL_IRI_ADMIN', 'LD_SOBEYS_HALLMARK_IRI_ADMIN',
+                'LD_SOBEYS_JAMIESON_LABORATORIES_IRI_ADMIN',
+                'LD_SOBEYS_JOHNSON_JOHNSON_IRI_ADMIN', 'LD_SOBEYS_KEURIG_IRI_ADMIN',
+                'LD_SOBEYS_KIMBERLY_CLARK_IRI_ADMIN', 'LD_SOBEYS_KRAFT_HEINZ_IRI_ADMIN', 'LD_SOBEYS_LABATT_IRI_ADMIN',
+                'LD_SOBEYS_LASSONDE_IRI_ADMIN',
+                'LD_SOBEYS_LA_CIE_MCCORMICK_IRI_ADMIN', 'LD_SOBEYS_L_OREAL_IRI_ADMIN', 'LD_SOBEYS_MAPLE_LEAF_IRI_ADMIN',
+                'LD_SOBEYS_MANITOBA_HARVEST_IRI_ADMIN',
+                'LD_SOBEYS_KS_Windsor_IRI_Admin', 'LD_SOBEYS_MOLSON_IRI_ADMIN', 'LD_SOBEYS_MONDELEZ_IRI_ADMIN',
+                'LD_SOBEYS_MEILLEURES_MARQUES_IRI_ADMIN',
+                'LD_SOBEYS_NESTLE_IRI_ADMIN', 'LD_SOBEYS_OLD_DUTCH_IRI_ADMIN', 'LD_SOBEYS_OLYMEL_IRI_ADMIN',
+                'LD_SOBEYS_PARMALAT_IRI_ADMIN',
+                'LD_SOBEYS_PEPSICO_IRI_ADMIN', 'LD_SOBEYS_PFIZER_IRI_ADMIN', 'LD_SOBEYS_PINNACLE_IRI_ADMIN',
+                'LD_SOBEYS_PROCTER_GAMBLE_IRI_ADMIN',
+                'LD_SOBEYS_RED_BULL_IRI_ADMIN', 'LD_SOBEYS_SELECT_BRAND_IRI_ADMIN', 'LD_SOBEYS_S_C_JOHNSON_IRI_ADMIN',
+                'LD_SOBEYS_SOFINA_IRI_ADMIN',
+                'LD_SOBEYS_SMUCKER_IRI_ADMIN', 'LD_SOBEYS_Temple_Lifestyle_Admin', 'LD_SOBEYS_ULTIMA_FOODS_IRI_ADMIN',
+                'LD_SOBEYS_UNILEVER_IRI_ADMIN',
+                'LD_SCM', 'LD_SOBEYS_Bonduelle_IRI_Admin', 'LD_SOBEYS_Litehousec_IRI_Admin',
+                'LD_SOBEYS_Canus_IRI_Admin',
+                'LD_SOBEYS_DANONE_IRI_ADMIN', 'LD_SOBEYS_Spice_Tailor_IRI_Admin', 'LD_SOBEYS_Taylor_Farms_IRI_Admin',
+                'LD_CDM',
+                'LD_GOC_APPS', 'LD_Dev_User', 'LD_ADVANTAGE_IMPLEMENTATION', 'LD_SOBEYS_CS_Training_Viewer',
+                'Reconcile_User_Group']
+def import_data(path):
+    IdList = [  'sobey00', 'sobey001', 'sobey002', 'sobey003', 'sobey005', 'sobey006',
+                'sobey007','sobey008', 'sobey009', 'sobey010', 'sobey011',
+                'sobey02', 'sobey04', 'sobey146', 'sobey147', 'sobey169', 'sobey170', 'zcs05',
+                'zcs1261', 'zcs1262', 'zcs1305', 'zcs1607', 'zcs1665',
+                'zcs3172', 'zcs3173', 'zcs3174', 'zcs3450', 'zcs3451', 'zcs3452', 'zcs3453',
+                'Zcs3454', 'zcs3456', 'zcs6825', 'zcs6826', 'zcs6827',
+                'zcs758', 'zhy0007', 'zp880', 'zpic566', 'sobey139']
+    with open(path) as f:
+        reader = csv.reader(f)
+        for row in reader:
+            if row[9] not in prohibitlist:
+                Organization_1 = str(row[0]).upper().strip()
+                User_ID_2 = str(row[1]).upper().strip()
+                Report_ID_3 = str(row[2]).upper().strip()
+                Report_Title = str(row[3]).upper()
+                Report_Title_4 = str(Report_Title).upper().strip()
+                Datetime_5 = row[4]
+                Month_6 = row[5]
+                Day_7 = row[6]
+                Year_8 = row[7]
+                Count_9 = row[8]
+                LDAP_10 = str(row[9]).upper().strip()
+                Company_Name_Raw = str(row[9]).upper()
+                Company_Name = Company_Name_Raw.replace("LD_SOBEYS_", "").replace("_VIEWER", ""). \
+                    replace("BRAND_VIEWER", "").replace("_IRI_ADMIN", "").replace("IRI", "").replace("ADMIN", ""). \
+                    replace("_", " ").replace("Admin", "").replace("QUEBEC", "").replace("WEST", ""). \
+                    replace("ATLANTIC", "").replace("ONTARIO", "").replace("LD ", "").replace("NATL", "").replace(
+                    "NATIONAL", ""). \
+                    replace("  ", " ").strip()
+                if row[9].find('UNIFY') > 0:
+                    Cateogory = "SOBEYS"
+                    Company_Name = "SOBEYS"
+                elif str(row[1]).upper().strip() in IdList:
+                    Cateogory = "SOBEYS"
+                    Company_Name = "SOBEYS"
+                else:
+                    Cateogory = "SUPPLIER"
+                c.execute(
+                    'INSERT INTO Data_Table(Organization,User_ID,Report_ID,Report_Title,Datetime,Month,Day,Year,Count,Company_Name,LDAP) VALUES(?,?,?,?,?,?,?,?,?,?,?)',
+                    (Organization_1, User_ID_2, Report_ID_3, Report_Title_4, Datetime_5, Month_6, Day_7, Year_8, Count_9, Company_Name, LDAP_10))
+                c.execute('INSERT OR IGNORE INTO Ldap_Table(LDAP,Company_Name,Category) VALUES(?,?,?)',
+                          (LDAP_10, Company_Name, Cateogory))
+                c.execute('INSERT OR IGNORE INTO ID_Table(User_ID,LDAP,Company_Name) VALUES(?,?,?)',
+                          (User_ID_2, LDAP_10, Company_Name))
+                c.execute('INSERT OR IGNORE INTO Company_Table(Company_Name) VALUES(?)', (Company_Name,))
+                c.execute('INSERT OR IGNORE INTO Company_Table(Company_Name) VALUES(?)', (Company_Name,))
+
+
+    conn.commit()
+
+def import_User_Details(path):
+    row = []
+    with open(path, encoding='Latin-1') as f:
+        reader = csv.reader(f)
+        for row in reader:
+                UserName_1 = str(row[0]).upper().strip()
+                Password_2 = str(row[1]).upper().strip()
+                FirstName_3 = str(row[2]).upper().strip()
+                LastName_4 = str(row[3]).upper().strip()
+                Email_5 = str(row[4]).upper().strip()
+                # Status_6 = str(row[5]).upper().strip()
+                Ldap_7 = str(row[5]).upper().strip()
+                Company_8 = str(row[6]).upper().strip()
+                RetailClient_9 = str(row[7]).upper().strip()
+                Title_10 = str(row[8]).upper().strip()
+                REGION_11 = str(row[9]).upper().strip()
+                DEPT_12 = str(row[10]).upper().strip()
+                DIRECTOR_13 = str(row[11]).upper().strip()
+                VP_14 = str(row[12]).upper().strip()
+                VP_DEPT_15 = str(row[13]).upper().strip()
+                EVP_16 = str(row[14]).upper().strip()
+                EVP_DEPT_17 = str(row[15]).upper().strip()
+                c.execute('INSERT OR IGNORE INTO USER_ID(USER_ID , PASSWORD , FIRST_NAME , LAST_NAME ,EMAIL ,'
+                          'LDAP ,COMPANY ,RETAIL_CLIENT ,TITLE, REGION, DEPT, DIRECTOR,VP, VP_DEPT, EVP, EVP_DEPT) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)',
+                          (UserName_1, Password_2, FirstName_3, LastName_4, Email_5,
+                           Ldap_7, Company_8, RetailClient_9, Title_10,REGION_11,DEPT_12,DIRECTOR_13,VP_14,VP_DEPT_15,EVP_16,EVP_DEPT_17,))
+    conn.commit()
+
+path2 = r"C:\Users\csftn\USER_FRANCIS_TRAN\USAGE REPORT DATA\SQL DATA\UserID.csv"
+path = r"C:\Users\csftn\USER_FRANCIS_TRAN\USAGE REPORT DATA\SQL DATA\SQL_DATA.csv"
+import_data(path)
+import_User_Details(path2)
+
+
+conn.commit()
+conn.close()
