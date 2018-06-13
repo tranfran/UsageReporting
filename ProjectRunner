@@ -1,0 +1,22 @@
+import datetime
+startime = datetime.datetime.now()
+print("1")
+import Database
+print("1. Database Complete")
+print("2")
+import Import_Data
+print("2. Import_Data Complete")
+print("3 - requires change in Month")
+import Create_Excel_Files_Requiring_Missing_Data
+print("3. Create_Excel_Files_Requiring_Missing_Data Complete")
+print("4")
+import Excel_Builder_Main_Tables
+print("4. Excel_Builder_Main_Tables Complete - requires change in Month")
+# print("5")
+import Excel_Builder_Supplier_Tables
+# print("5. Excel_Builder_Supplier_Tables Complete - requires change in Month")
+print("6")
+import Excel_Builder_Sobeys_Tables
+print("6. Excel_Builder_Sobeys_Tables Complete")
+print(datetime.datetime.now() - startime)
+print("Complete.")
