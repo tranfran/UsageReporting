@@ -99,9 +99,9 @@ def create_Supplier_excel(Supplier,Month1,Month2,Month3,year):
                                                                Month1,Month2,Month3,year)
     SLVQUERY = 'SELECT ' \
                '(c.First_name || " " || c.Last_name || " (" || a.User_Id || ")") AS DisplayName, ' \
-               'EVP AS EVP, ' \
-               'VP AS VP, ' \
-               'Director AS DIRECTOR, ' \
+               'c.EVP AS EVP, ' \
+               'c.VP AS VP, ' \
+               'c.Director AS DIRECTOR, ' \
                'sum(case when a.Month = "{}" THEN 1 ELSE "" END) AS {}, ' \
                'sum(case when a.Month = "{}" THEN 1 ELSE "" END) AS {}, ' \
                'sum(case when a.Month = "{}" THEN 1 ELSE "" END) AS {}, ' \
@@ -109,9 +109,82 @@ def create_Supplier_excel(Supplier,Month1,Month2,Month3,year):
                'from Data_Table a ' \
                'LEFT OUTER JOIN Partial_Translation b on b.Report_Name = a.Report_Title ' \
                'LEFT OUTER JOIN USER_ID c on a.User_Id = c.user_id ' \
-               'WHERE a.COMPANY_NAME = "{}" and a.MONTH IN ("{}","{}","{}") and a.year = {} and EVP NOT IN ("UNCLASSIFIED","MICHEAL MEDLINE") ' \
+               'WHERE a.COMPANY_NAME = "{}" and a.MONTH IN ("{}","{}","{}") ' \
+               'and a.year = {} ' \
+               'and EVP NOT IN ("UNCLASSIFIED","MICHAEL MEDLINE") ' \
                'Group by DisplayName ' \
                'Order by TOTAL DESC'.format(Month1, calendar.month_abbr[Month1].upper(),
+                                            Month2, calendar.month_abbr[Month2].upper(),
+                                            Month3, calendar.month_abbr[Month3].upper(),
+                                            Supplier, Month1, Month2, Month3, year)
+    SLV_INDEX_QUERY ='SELECT ' \
+               'a.COMPANY_NAME, ' \
+               'sum(case when a.Month = "{}" THEN 1 ELSE "" END) AS {}, ' \
+               'sum(case when a.Month = "{}" THEN 1 ELSE "" END) AS {}, ' \
+               'sum(case when a.Month = "{}" THEN 1 ELSE "" END) AS {}, ' \
+               'COUNT(a.Report_Title) AS TOTAL, ' \
+               'Count(DISTINCT c.EVP) AS UNIQUE_EVP_COUNT, ' \
+               'Count(DISTINCT c.VP) AS UNIQUE_VP_COUNT, ' \
+               'Count(DISTINCT c.DIRECTOR) AS UNIQUE_DIRECTOR_COUNT, ' \
+               'Count(DISTINCT a.user_id) AS UNIQUE_User_COUNT ' \
+               'from Data_Table a ' \
+               'LEFT OUTER JOIN Partial_Translation b on b.Report_Name = a.Report_Title ' \
+               'LEFT OUTER JOIN USER_ID c on a.User_Id = c.user_id ' \
+               'WHERE a.COMPANY_NAME = "{}" and a.MONTH IN ("{}","{}","{}") ' \
+               'and a.year = {} ' \
+               'and EVP NOT IN ("UNCLASSIFIED","MICHAEL MEDLINE") ' \
+               'Group by a.COMPANY_NAME ' \
+               'Order by TOTAL DESC'.format(Month1, calendar.month_abbr[Month1].upper(),
+                                            Month2, calendar.month_abbr[Month2].upper(),
+                                            Month3, calendar.month_abbr[Month3].upper(),
+                                            Supplier, Month1, Month2, Month3, year)
+    EVP_INDEX_QUERY ='SELECT ' \
+               'c.EVP as EVP, ' \
+               'sum(case when a.Month = "{}" THEN 1 ELSE "" END) AS {}, ' \
+               'sum(case when a.Month = "{}" THEN 1 ELSE "" END) AS {}, ' \
+               'sum(case when a.Month = "{}" THEN 1 ELSE "" END) AS {}, ' \
+               'COUNT(a.Report_Title) AS TOTAL, ' \
+               'Count(DISTINCT c.VP) AS UNIQUE_VP_COUNT, ' \
+               'Count(DISTINCT c.DIRECTOR) AS UNIQUE_DIRECTOR_COUNT, ' \
+               'Count(DISTINCT a.user_id) AS UNIQUE_User_COUNT ' \
+               'from Data_Table a ' \
+               'LEFT OUTER JOIN Partial_Translation b on b.Report_Name = a.Report_Title ' \
+               'LEFT OUTER JOIN USER_ID c on a.User_Id = c.user_id ' \
+               'WHERE a.COMPANY_NAME = "{}" and a.MONTH IN ("{}","{}","{}") ' \
+               'and a.year = {} ' \
+               'and EVP NOT IN ("UNCLASSIFIED","MICHAEL MEDLINE") ' \
+               'Group by EVP ' \
+               'Order by EVP ASC, TOTAL DESC'.format(Month1, calendar.month_abbr[Month1].upper(),
+                                            Month2, calendar.month_abbr[Month2].upper(),
+                                            Month3, calendar.month_abbr[Month3].upper(),
+                                            Supplier, Month1, Month2, Month3, year)
+    VP_QUERY = 'SELECT ' \
+               'c.EVP AS EVP, ' \
+               'c.VP AS VP, ' \
+               'COUNT(a.Report_Title) AS TOTAL ' \
+               'from Data_Table a ' \
+               'LEFT OUTER JOIN Partial_Translation b on b.Report_Name = a.Report_Title ' \
+               'LEFT OUTER JOIN USER_ID c on a.User_Id = c.user_id ' \
+               'WHERE a.COMPANY_NAME = "{}" and a.MONTH IN ("{}","{}","{}") ' \
+               'and a.year = {} ' \
+               'and EVP NOT IN ("UNCLASSIFIED","MICHAEL MEDLINE") ' \
+               'Group by EVP,VP ' \
+               'Order by EVP ASC, ' \
+               'TOTAL DESC'.format(Supplier, Month1, Month2, Month3, year)
+    EVP_NAMES = 'SELECT ' \
+               'c.EVP AS EVP, ' \
+               'sum(case when a.Month = "{}" THEN 1 ELSE "" END) AS {}, ' \
+               'sum(case when a.Month = "{}" THEN 1 ELSE "" END) AS {}, ' \
+               'sum(case when a.Month = "{}" THEN 1 ELSE "" END) AS {}, ' \
+               'COUNT(a.Report_Title) AS TOTAL ' \
+               'from Data_Table a ' \
+               'LEFT OUTER JOIN Partial_Translation b on b.Report_Name = a.Report_Title ' \
+               'LEFT OUTER JOIN USER_ID c on a.User_Id = c.user_id ' \
+               'WHERE a.COMPANY_NAME = "{}" and a.MONTH IN ("{}","{}","{}") ' \
+               'and a.year = {} ' \
+               'and EVP NOT IN ("UNCLASSIFIED","MICHAEL MEDLINE") ' \
+               'Group by EVP ' \
+               'Order by EVP ASC , TOTAL DESC'.format(Month1, calendar.month_abbr[Month1].upper(),
                                             Month2, calendar.month_abbr[Month2].upper(),
                                             Month3, calendar.month_abbr[Month3].upper(),
                                             Supplier, Month1, Month2, Month3, year)
@@ -120,15 +193,64 @@ def create_Supplier_excel(Supplier,Month1,Month2,Month3,year):
     # currentMonth = str(5)
     currentYear = str(datetime.now().year)
     workbook = Workbook(path + '\\' + Supplier + "-" + currentMonth + "-" + currentYear + ".xlsx")
-    worksheet7 = workbook.add_worksheet("SLV_Data")
+    # worksheet9 = workbook.add_worksheet("EVP SUMMARY")
     worksheet6 = workbook.add_worksheet("Summary")
+    worksheet8 = workbook.add_worksheet("SLV_INDEX_Data")
+    worksheet7 = workbook.add_worksheet("SLV_Data")
     worksheet5 = workbook.add_worksheet("Community_Index")
     worksheet4 = workbook.add_worksheet("Community_Data")
     worksheet3 = workbook.add_worksheet("User_Sum")
     worksheet2 = workbook.add_worksheet("Report_Sum")
     worksheet = workbook.add_worksheet("HISTORY")
     # #########################################################################
-   #Senior Level Data
+    c.execute(EVP_NAMES)
+    mysel = c.execute(EVP_NAMES)
+    EVPNAMES = list(map(lambda x: x[0], mysel))
+    col = 2
+    VP_FORMAT = workbook.add_format()
+    VP_FORMAT.set_font_size(12)
+    VP_FORMAT.set_align('center')
+    VP_FORMAT.set_align('vcenter')
+    VP_FORMAT.set_font_color('#FFFFFF')
+    VP_FORMAT.set_bg_color('009900')
+    for m in EVPNAMES:
+        print(m)
+        worksheet6.write(63, col, m)
+        worksheet6.conditional_format(64,col,64,col+1, {'type': 'no_errors',
+                                                  'format': VP_FORMAT})
+        dyno_VP_QUERY = 'SELECT ' \
+               'c.VP AS VP, ' \
+               'COUNT(a.Report_Title) AS TOTAL ' \
+               'from Data_Table a ' \
+               'LEFT OUTER JOIN Partial_Translation b on b.Report_Name = a.Report_Title ' \
+               'LEFT OUTER JOIN USER_ID c on a.User_Id = c.user_id ' \
+               'WHERE a.COMPANY_NAME = "{}" and a.MONTH IN ("{}","{}","{}") ' \
+               'and a.year = {} ' \
+               'and EVP NOT IN ("UNCLASSIFIED","MICHAEL MEDLINE") ' \
+               'and EVP IN ("{}") ' \
+               'Group by EVP,VP ' \
+               'Order by EVP ASC, ' \
+               'TOTAL DESC'.format(Supplier, Month1, Month2, Month3, year,m)
+        myNEWsel  = c.execute(dyno_VP_QUERY)
+        names = list(map(lambda x: x[0], mysel.description))
+        col2 = col
+        for i in names:
+            worksheet6.write(64, col2, i)
+            col2 += 1
+        for i, row in enumerate(myNEWsel):
+            col_num = col
+            i += 65
+            for j, value in enumerate(row):
+                worksheet6.write(i, col_num, row[j])
+                col_num += 1
+        col += 4
+    worksheet6.conditional_format('D65:D100', {'type': 'data_bar'})
+    worksheet6.conditional_format('H65:H100', {'type': 'data_bar'})
+    worksheet6.conditional_format('L65:L100', {'type': 'data_bar'})
+    worksheet6.conditional_format('P65:P100', {'type': 'data_bar'})
+    worksheet6.conditional_format('T65:T100', {'type': 'data_bar'})
+
+    #Senior Level Data
     c.execute(SLVQUERY)
     mysel = c.execute(SLVQUERY)
     names = list(map(lambda x: x[0], mysel.description))
@@ -142,7 +264,121 @@ def create_Supplier_excel(Supplier,Month1,Month2,Month3,year):
         for j, value in enumerate(row):
             worksheet7.write(i, col, row[j])
             col += 1
+        worksheet7.hide()
+    ######
+    #SLV INDEX
+    mysel = c.execute(SLV_INDEX_QUERY)
+    names = list(map(lambda x: x[0], mysel.description))
+    col = 0
+    for i in names:
+        worksheet8.write(0, col,i)
+        col +=1
+    for i, row in enumerate(mysel):
+        col = 0
+        i += 1
+        for j, value in enumerate(row):
+            worksheet8.write(i, col, row[j])
+            col += 1
+    myothersel = c.execute(EVP_INDEX_QUERY)
+    names2 = list(map(lambda x: x[0], myothersel.description))
+    for i in names2:
+        worksheet8.write(0, col,i)
+        col +=1
+    for i, row in enumerate(myothersel):
+        col = 9
+        i += 1
+        for j, value in enumerate(row):
+            worksheet8.write(i, col, row[j])
+            col += 1
+        rowcount = i
+    myothersel2 = c.execute(VP_QUERY)
+    names3 = list(map(lambda x: x[0], myothersel.description))
+    col = 22
+    for i in names3:
+            worksheet8.write(0, col, i)
+            col += 1
+    for i, row in enumerate(myothersel2):
+        col = 22
+        i += 1
+        for j, value in enumerate(row):
+            worksheet8.write(i, col, row[j])
 
+            col += 1
+
+        # Formula
+    for row_num in range(1, rowcount + 1):
+        R_SOB_CELL = xl_rowcol_to_cell(1, 4)
+        I_SOB_CELL = xl_rowcol_to_cell(1, 8)
+        R_cell = xl_rowcol_to_cell(row_num, 13)
+        I_cell = xl_rowcol_to_cell(row_num, 16)
+        Index_Cell = xl_rowcol_to_cell(row_num, 17)
+        Index_Cell2 = xl_rowcol_to_cell(row_num, 18)
+        A_R_CELL = xl_rowcol_to_cell(row_num, 13)
+        A_I_CELL = xl_rowcol_to_cell(row_num, 16)
+        formula = '=({}/{})'.format(R_cell,R_SOB_CELL)
+        formula2 = '=({}/{})'.format(I_cell,I_SOB_CELL)
+        formula3 = '=Round(({}/{})*100,0)'.format(Index_Cell, Index_Cell2)
+        formula4 = '=Round(({}/{}),0)'.format(A_R_CELL, A_I_CELL)
+        worksheet8.write(row_num, 17, formula)
+        worksheet8.write(0, 17, "REPORT INDEX")
+        worksheet8.write(row_num, 18, formula2)
+        worksheet8.write(0, 18, "ID INDEX")
+        worksheet8.write(row_num, 19, formula3)
+        worksheet8.write(0, 19, "INDEX TO EVP")
+        worksheet8.write(row_num, 20, formula4)
+        worksheet8.write(0, 20, "AVERAGE REPORT PER USER")
+    worksheet8.hide()
+    #EVP Summary
+    cell_format = workbook.add_format()
+    cell_format.set_font_size(30)
+    cell_format.set_align('center')
+    cell_format.set_align('vcenter')
+    cell_format.set_font_color('#FFFFFF')
+    cell_format.set_bg_color('009900')
+    worksheet6.merge_range("A1:W3", "COMMUNITY COMPARISON FOR {}".format(Supplier),cell_format)
+
+    chart1 = workbook.add_chart({'type': 'column'})
+    chart1.set_title({'name': 'REPORTS RUN BY EVP'})
+    chart1.add_series({'name': "{}".format(calendar.month_abbr[Month1].upper()),
+                       'categories': '=SLV_INDEX_Data!$J$2:$J${}'.format(rowcount+1),
+                       'values': '=SLV_INDEX_Data!$K$2:$K${}'.format(rowcount+1),
+                       'data_labels': {'value': True, 'font': {'rotation': -45}}, })
+    chart1.add_series({'name': "{}".format(calendar.month_abbr[Month2].upper()),
+                       'categories': '=SLV_INDEX_Data!$J$7:$J${}'.format(rowcount+1),
+                       'values': '=SLV_INDEX_Data!$L$2:$L${}'.format(rowcount +1),
+                       'data_labels': {'value': True, 'font': {'rotation': -45}}, })
+    chart1.add_series({'name': "{}".format(calendar.month_abbr[Month3].upper()),
+                       'categories': '=SLV_INDEX_Data!$J$7:$J${}'.format(rowcount+1),
+                       'values': '=SLV_INDEX_Data!$M$2:$M${}'.format(rowcount+1),
+                       'data_labels': {'value': True, 'font': {'rotation': -45}}, })
+    chart1.set_style(2)
+    chart1.set_x_axis({'num_font': {'size': 12}})
+    chart1.set_y_axis({'name': 'Number of Reports Run'})
+    chart1.set_size({'width': 1350, 'height': 300})
+    chart1.set_legend({'position': 'bottom'})
+    worksheet6.insert_chart('B30', chart1)
+            #iNDEX
+    chart1 = workbook.add_chart({'type': 'column'})
+    chart2 = workbook.add_chart({'type': 'line'})
+    chart1.set_title({'name': 'EVP INDEX TO SOBEYS - L3 MONTHS'})
+    chart1.add_series({'name': "{}".format(Supplier.upper()),
+                            'categories': '=SLV_INDEX_Data!$J$2:$J${}'.format(rowcount+1),
+                            'values': '=SLV_INDEX_Data!$N$2:$N${}'.format(rowcount+1),
+                            'data_labels': {'value': True, 'font': {'rotation': 0}, 'position': 'center'}, })
+    chart2.add_series({'name': "INDEX",
+                            'categories': '=SLV_INDEX_Data!$J$2:$J${}'.format(rowcount+1),
+                            'values': '=SLV_INDEX_Data!$T$2:$T${}'.format(rowcount+1),
+                            'y2_axis': True,
+                            'data_labels': {'value': True, 'font': {'rotation': 0}, 'position': 'top', }})
+    chart1.set_style(2)
+    chart1.set_x_axis({'name' : 'EVP','num_font': {'size': 12}})
+    chart1.set_y_axis({'name': 'Reports Run by {}'.format(Supplier)})
+    chart2.set_y2_axis({'name': 'Index of {} to Community'.format(Supplier)})
+    chart1.set_size({'width': 1350, 'height': 300})
+    chart1.set_legend({'position': 'bottom'})
+    chart1.combine(chart2)
+    worksheet6.hide_gridlines(2)
+    worksheet6.insert_chart('B46', chart1)
 
     # #########################################################################
     #Community most pop report
@@ -313,7 +549,8 @@ def create_Supplier_excel(Supplier,Month1,Month2,Month3,year):
         formula = '={}/sumifs(D:D,B:B,{},C:C,{})'.format(ID_cell,ID_cell2,ID_cell3)
         formula2 = '={}/sumifs(E:E,B:B,{},C:C,{})'.format(Report_cell, Report_cell2, Report_cell3)
         formula3 = '=Round(({}/{})*100,0)'.format(Index_Cell, Index_Cell2)
-        formula4 = '=ROUND(SUMIFS(E:E,B:B,{},C:C,{})/SUMIFS(D:D,B:B,{},C:C,{}),0)'.format(Community_cell,Community_ID_cell,Community_cell,Community_ID_cell)
+        formula4 = '=ROUND(SUMIFS(E:E,B:B,{},C:C,{})/SUMIFS(D:D,B:B,{},C:C,{}),0)'.\
+            format(Community_cell,Community_ID_cell,Community_cell,Community_ID_cell)
         formula5 = '=Round(({}/{}),0)'.format(Supplier_Report_cell, Supplier_ID_cell)
         worksheet4.write(row_num, 10, formula)
         worksheet4.write(0, 10, "ID INDEX")
@@ -328,7 +565,6 @@ def create_Supplier_excel(Supplier,Month1,Month2,Month3,year):
     worksheet4.hide()
     #############################################################
     #Community Graph
-
     cell_format = workbook.add_format()
     cell_format.set_font_size(30)
     cell_format.set_align('center')
@@ -448,8 +684,6 @@ def create_Supplier_excel(Supplier,Month1,Month2,Month3,year):
     worksheet6.conditional_format("L27:P27", {'type': 'no_errors',
                                               'format': GreyCell,
                                               })
-
-    worksheet6.set_column(2, 2, 15)
     worksheet6.merge_range("F21:J21", "Sobeys Top 5 Reports - Latest 3 Months",CenterAlign)
     worksheet6.merge_range("F22:G22", "Report Name",SobeysTop5)
     worksheet6.merge_range("I22:J22", "Total Reports Run")
