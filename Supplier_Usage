@@ -1,4 +1,5 @@
 import sqlite3
+import openpyxl
 import calendar
 from datetime import datetime
 from xlsxwriter.utility import xl_rowcol_to_cell
@@ -11,7 +12,7 @@ def Create_Path(Supplier):
     currentMonth = str((calendar.month_abbr[datetime.now().month-1].upper()))
     # currentMonth = str(calendar.month_abbr[5].upper())
     currentYear = str(datetime.now().year)
-    # path = r"C:\Users\csftn\USER_FRANCIS_TRAN\USAGE REPORT DATA\PREVIOUS MONTHS"
+    # path = r"C:\Users\csftn\USER_FRANCIS_TRAN\USAGE REPORT DATA\SUPPLIERS"
     path = r"M:\8. Development\8. WIP Retail Services\Usage Report\SUPPLIER USAGE"
     subpath = currentYear
     subsubpath = currentMonth
@@ -120,37 +121,18 @@ def create_Supplier_excel(Supplier,Month1,Month2,Month3,year,monthofinterest):
                                                                           Month3, calendar.month_abbr[Month3].upper(),
                                                                           Month1, Month2, Month3, year)
     #############################################################
-    #Worksheet6
-    # User Sum
     c.execute(Query3)
     test1 = c.fetchall()
     if len(test1) == 0:
         pass
     else:
         path = Create_Path(Supplier)
-        # #########################################################################
-        # workbook = Workbook(path + '\\' + Supplier + ".xlsx")
-        # worksheet = workbook.add_worksheet()
-        # c.execute(EVPQUERY)
-        # mysel = c.execute(EVPQUERY)
-        # names = list(map(lambda x: x[0], mysel.description))
-        # col = 0
-        # for i in names:
-        #     worksheet.write(0, col, i)
-        #     col += 1
-        # for i, row in enumerate(mysel):
-        #     col = 0
-        #     i += 1
-        #     for j, value in enumerate(row):
-        #         worksheet.write(i, col, row[j])
-        #         col += 1
-        # workbook.close()
-        # print(Supplier + " Workbook has been created")
         ##########################################################################
         currentMonth = str(datetime.now().month - 1)
         # currentMonth = str(monthofinterest)
         currentYear = str(datetime.now().year)
-        workbook = Workbook(path + '\\' + Supplier + "-" + currentMonth + "-" + currentYear + ".xlsx")
+        workbookpath = path + '\\' + Supplier + "-" + currentMonth + "-" + currentYear + ".xlsx"
+        workbook = Workbook(workbookpath)
         worksheet7 = workbook.add_worksheet("Supplier Summary")
         worksheet6 = workbook.add_worksheet("USER_RANK")
         worksheet5 = workbook.add_worksheet("Community_Index")
@@ -159,6 +141,8 @@ def create_Supplier_excel(Supplier,Month1,Month2,Month3,year,monthofinterest):
         worksheet2 = workbook.add_worksheet("Report_Sum")
         worksheet = workbook.add_worksheet("HISTORY")
         worksheet8 = workbook.add_worksheet("Community_Users")
+
+        ###########################
         print(len(test1))
         c.execute(Query3)
         mysel = c.execute(Query3)
@@ -267,11 +251,13 @@ def create_Supplier_excel(Supplier,Month1,Month2,Month3,year,monthofinterest):
         cell_format3.set_font_color('#FFFFFF')
         cell_format3.set_bg_color('#000075')
         worksheet6.write("D10", "RANK", cell_format3)
-        worksheet6.write("E10", "NAME", cell_format3)
+        worksheet6.write("E10", "USER", cell_format3)
         worksheet6.write("I10", "REPORTS RUN", cell_format3)
         worksheet6.write("L10", "RANK", cell_format3)
-        worksheet6.write("M10", "TIMES RUN", cell_format3)
-        worksheet6.write("Q10", "TOTAL", cell_format3)
+        worksheet6.write("M10", "REPORT NAME", cell_format3)
+        worksheet6.write("Q10", "REPORTS RUN", cell_format3)
+        worksheet6.set_column(16,16,15)
+        worksheet6.freeze_panes(5,0)
         #############################################################
         #Community most pop report
         c.execute(CommunityReports)
@@ -401,9 +387,8 @@ def create_Supplier_excel(Supplier,Month1,Month2,Month3,year,monthofinterest):
         chart1.set_legend({'position': 'bottom'})
         worksheet5.insert_chart('J57', chart1)
         #############################################################
-        mysel = c.execute(CommunityIndexRowCount)
-        RowcountCI = mysel
-        for i, row in enumerate(mysel):
+        mysel1 = c.execute(SupplierIndex)
+        for i, row in enumerate(mysel1):
             i += 1
         RowcountCI = i + 1
 
@@ -417,7 +402,13 @@ def create_Supplier_excel(Supplier,Month1,Month2,Month3,year,monthofinterest):
             col = 0
             i += 1
             for j, value in enumerate(row):
-                worksheet4.write(i, col, row[j])
+                if j == 2:
+                    Month_name = str((calendar.month_abbr[row[j]].upper()))
+                    worksheet4.write(i, col, Month_name)
+                elif j == 1:
+                    worksheet4.write(i, col, "20" + str(row[j]))
+                else:
+                    worksheet4.write(i, col, row[j])
                 col += 1
         myothersel = c.execute(SupplierIndex)
         names2 = list(map(lambda x: x[0], myothersel.description))
@@ -428,8 +419,16 @@ def create_Supplier_excel(Supplier,Month1,Month2,Month3,year,monthofinterest):
             col = 5
             i += 1
             for j, value in enumerate(row):
-                worksheet4.write(i, col, row[j])
+                if j == 2:
+                    Month_name = str((calendar.month_abbr[row[j]].upper()))
+                    worksheet4.write(i, col, Month_name)
+                elif j == 1:
+                    worksheet4.write(i, col, "20" + str(row[j]))
+                else:
+                    worksheet4.write(i, col, row[j])
                 col += 1
+
+
         #Formula
         for row_num in range(1, i + 1):
             ID_cell = xl_rowcol_to_cell(row_num, 8)
@@ -460,6 +459,7 @@ def create_Supplier_excel(Supplier,Month1,Month2,Month3,year,monthofinterest):
             worksheet4.write(0, 13, "COMMUNITY Community average")
             worksheet4.write(row_num, 14, formula5)
             worksheet4.write(0, 14, "Supplier Average")
+
         worksheet4.hide()
         #############################################################
         #Community Graph
@@ -472,7 +472,7 @@ def create_Supplier_excel(Supplier,Month1,Month2,Month3,year,monthofinterest):
         worksheet5.merge_range("A1:P4", "COMMUNITY COMPARISON FOR {}".format(Supplier),cell_format)
         chart1 = workbook.add_chart({'type': 'column'})
         chart2 = workbook.add_chart({'type': 'line'})
-        chart1.set_title({'name': 'INDEX TO SUPPLIER COMMUNITY'})
+        chart1.set_title({'name': '{} INDEXED TO ENTIRE SUPPLIER COMMUNITY'.format(Supplier)})
         chart1.add_series({'name': "{}".format(Supplier.upper()),
                                 'categories': '=Community_Data!$G$2:$H${}'.format(i+1),
                                 'values': '=Community_Data!$J$2:$J${}'.format(i+1),
@@ -502,7 +502,9 @@ def create_Supplier_excel(Supplier,Month1,Month2,Month3,year,monthofinterest):
         worksheet7.merge_range("C1:V4", "Sobeys Collaborative Gateway Usage Report", cell_format7)
         worksheet7.merge_range("C27:F27","Total Reports run in latest 3 Months")
         worksheet7.write("G27","=User_Rank!i{}".format(Total_Reports_Run_Cell))
-        formulaPercentChangeFromPreviousQuarter = '=sum(Community_Data!J{}:J{})/sum(Community_Data!J{}:j{})-1'.format(RowcountCI, RowcountCI - 2, RowcountCI - 3, RowcountCI - 5)
+        formulaPercentChangeFromPreviousQuarter = \
+            '=IFERROR(sum(Community_Data!J{}:J{})/sum(Community_Data!J{}:j{})-1,0)'\
+            .format(RowcountCI, RowcountCI - 2, RowcountCI - 3, RowcountCI - 5)
         worksheet7.write("N27",formulaPercentChangeFromPreviousQuarter)
         worksheet7.set_column(13, 13, 10)
         percent_fmt = workbook.add_format({'num_format': '0.00%'})
@@ -547,11 +549,11 @@ def create_Supplier_excel(Supplier,Month1,Month2,Month3,year,monthofinterest):
         worksheet7.set_column(9, 9, 15)
         worksheet7.merge_range("J29:N29", "Bottom 5 Reports - Latest 3 Months",cell_format_Tables)
         worksheet7.merge_range("J30:L30", "Name")
-        worksheet7.write("J31", '=IF(OR(USER_RANK!M{}="NAME",USER_RANK!M{}=""),"",USER_RANK!M{})'.format(BottomReportCell,BottomReportCell,BottomReportCell))
-        worksheet7.write("J32", '=IF(OR(USER_RANK!M{}="NAME",USER_RANK!M{}=""),"",USER_RANK!M{})'.format(BottomReportCell-1,BottomReportCell-1,BottomReportCell-1))
-        worksheet7.write("J33", '=IF(OR(USER_RANK!M{}="NAME",USER_RANK!M{}=""),"",USER_RANK!M{})'.format(BottomReportCell-2,BottomReportCell-2,BottomReportCell-2))
-        worksheet7.write("J34", '=IF(OR(USER_RANK!M{}="NAME",USER_RANK!M{}=""),"",USER_RANK!M{})'.format(BottomReportCell-3,BottomReportCell-3,BottomReportCell-3))
-        worksheet7.write("J35", '=IF(OR(USER_RANK!M{}="NAME",USER_RANK!M{}=""),"",USER_RANK!M{})'.format(BottomReportCell-4,BottomReportCell-4,BottomReportCell-4))
+        worksheet7.write("J31", '=IF(OR(USER_RANK!M{}="NAME",USER_RANK!M{}="USER",USER_RANK!M{}=""),"",USER_RANK!M{})'.format(BottomReportCell,BottomReportCell,BottomReportCell))
+        worksheet7.write("J32", '=IF(OR(USER_RANK!M{}="NAME",USER_RANK!M{}="USER",USER_RANK!M{}=""),"",USER_RANK!M{})'.format(BottomReportCell-1,BottomReportCell-1,BottomReportCell-1))
+        worksheet7.write("J33", '=IF(OR(USER_RANK!M{}="NAME",USER_RANK!M{}="USER",USER_RANK!M{}=""),"",USER_RANK!M{})'.format(BottomReportCell-2,BottomReportCell-2,BottomReportCell-2))
+        worksheet7.write("J34", '=IF(OR(USER_RANK!M{}="NAME",USER_RANK!M{}="USER",USER_RANK!M{}=""),"",USER_RANK!M{})'.format(BottomReportCell-3,BottomReportCell-3,BottomReportCell-3))
+        worksheet7.write("J35", '=IF(OR(USER_RANK!M{}="NAME",USER_RANK!M{}="USER",USER_RANK!M{}=""),"",USER_RANK!M{})'.format(BottomReportCell-4,BottomReportCell-4,BottomReportCell-4))
         worksheet7.write("M31", "=IFERROR(INDEX(Community_Index!C:C,MATCH(J31,Community_Index!D:D,0)),"")")
         worksheet7.write("M32", "=IFERROR(INDEX(Community_Index!C:C,MATCH(J32,Community_Index!D:D,0)),"")")
         worksheet7.write("M33", "=IFERROR(INDEX(Community_Index!C:C,MATCH(J33,Community_Index!D:D,0)),"")")
@@ -577,11 +579,11 @@ def create_Supplier_excel(Supplier,Month1,Month2,Month3,year,monthofinterest):
         worksheet7.merge_range("C38:G38", "Top 5 Frequent Users - Latest 3 Months",cell_format_Tables)
         worksheet7.merge_range("C39:E39", "Name")
         worksheet7.merge_range("F39:G39", "Community Rank")
-        worksheet7.write("C40", '=IF(OR(USER_RANK!E11="TOTAL",USER_RANK!E11=""),"",USER_RANK!E11)')
-        worksheet7.write("C41", '=IF(OR(USER_RANK!E12="TOTAL",USER_RANK!E12=""),"",USER_RANK!E12)')
-        worksheet7.write("C42", '=IF(OR(USER_RANK!E13="TOTAL",USER_RANK!E13=""),"",USER_RANK!E13)')
-        worksheet7.write("C43", '=IF(OR(USER_RANK!E14="TOTAL",USER_RANK!E14=""),"",USER_RANK!E14)')
-        worksheet7.write("C44", '=IF(OR(USER_RANK!E15="TOTAL",USER_RANK!E15=""),"",USER_RANK!E15)')
+        worksheet7.write("C40", '=IF(OR(USER_RANK!E11="TOTAL",USER_RANK!E11="USER",USER_RANK!E11=""),"",USER_RANK!E11)')
+        worksheet7.write("C41", '=IF(OR(USER_RANK!E12="TOTAL",USER_RANK!E12="USER",USER_RANK!E12=""),"",USER_RANK!E12)')
+        worksheet7.write("C42", '=IF(OR(USER_RANK!E13="TOTAL",USER_RANK!E13="USER",USER_RANK!E13=""),"",USER_RANK!E13)')
+        worksheet7.write("C43", '=IF(OR(USER_RANK!E14="TOTAL",USER_RANK!E14="USER",USER_RANK!E14=""),"",USER_RANK!E14)')
+        worksheet7.write("C44", '=IF(OR(USER_RANK!E15="TOTAL",USER_RANK!E15="USER",USER_RANK!E15=""),"",USER_RANK!E15)')
         worksheet7.write("F40",'=IFERROR(IF(C40="","",INDEX(Community_Users!A:A,MATCH(C40,Community_Users!B:B,0))),"")')
         worksheet7.write("F41",'=IFERROR(IF(C41="","",INDEX(Community_Users!A:A,MATCH(C41,Community_Users!B:B,0))),"")')
         worksheet7.write("F42",'=IFERROR(IF(C42="","",INDEX(Community_Users!A:A,MATCH(C42,Community_Users!B:B,0))),"")')
@@ -592,11 +594,11 @@ def create_Supplier_excel(Supplier,Month1,Month2,Month3,year,monthofinterest):
         worksheet7.merge_range("J38:N38", "Top 5 Infrequent Users - Latest 3 Months",cell_format_Tables)
         worksheet7.merge_range("J39:L39", "Name")
         worksheet7.merge_range("M39:N39", "Community Rank")
-        worksheet7.write("J40", '=IF(OR(USER_RANK!E{}="NAME",USER_RANK!E{}="TOTAL",USER_RANK!E{}=""),"",USER_RANK!E{})'.format(BottomUserCell,BottomUserCell,BottomUserCell,BottomUserCell))
-        worksheet7.write("J41", '=IF(OR(USER_RANK!E{}="NAME",USER_RANK!E{}="TOTAL",USER_RANK!E{}=""),"",USER_RANK!E{})'.format(BottomUserCell-1,BottomUserCell-1,BottomUserCell-1,BottomUserCell-1))
-        worksheet7.write("J42", '=IF(OR(USER_RANK!E{}="NAME",USER_RANK!E{}="TOTAL",USER_RANK!E{}=""),"",USER_RANK!E{})'.format(BottomUserCell-2,BottomUserCell-2,BottomUserCell-2,BottomUserCell-2))
-        worksheet7.write("J43", '=IF(OR(USER_RANK!E{}="NAME",USER_RANK!E{}="TOTAL",USER_RANK!E{}=""),"",USER_RANK!E{})'.format(BottomUserCell-3,BottomUserCell-3,BottomUserCell-3,BottomUserCell-3))
-        worksheet7.write("J44", '=IF(OR(USER_RANK!E{}="NAME",USER_RANK!E{}="TOTAL",USER_RANK!E{}=""),"",USER_RANK!E{})'.format(BottomUserCell-4,BottomUserCell-4,BottomUserCell-4,BottomUserCell-4))
+        worksheet7.write("J40", '=IF(OR(USER_RANK!E{}="NAME",USER_RANK!E{}="USER",USER_RANK!E{}="TOTAL",USER_RANK!E{}=""),"",USER_RANK!E{})'.format(BottomUserCell,BottomUserCell,BottomUserCell,BottomUserCell))
+        worksheet7.write("J41", '=IF(OR(USER_RANK!E{}="NAME",USER_RANK!E{}="USER",USER_RANK!E{}="TOTAL",USER_RANK!E{}=""),"",USER_RANK!E{})'.format(BottomUserCell-1,BottomUserCell-1,BottomUserCell-1,BottomUserCell-1))
+        worksheet7.write("J42", '=IF(OR(USER_RANK!E{}="NAME",USER_RANK!E{}="USER",USER_RANK!E{}="TOTAL",USER_RANK!E{}=""),"",USER_RANK!E{})'.format(BottomUserCell-2,BottomUserCell-2,BottomUserCell-2,BottomUserCell-2))
+        worksheet7.write("J43", '=IF(OR(USER_RANK!E{}="NAME",USER_RANK!E{}="USER",USER_RANK!E{}="TOTAL",USER_RANK!E{}=""),"",USER_RANK!E{})'.format(BottomUserCell-3,BottomUserCell-3,BottomUserCell-3,BottomUserCell-3))
+        worksheet7.write("J44", '=IF(OR(USER_RANK!E{}="NAME",USER_RANK!E{}="USER",USER_RANK!E{}="TOTAL",USER_RANK!E{}=""),"",USER_RANK!E{})'.format(BottomUserCell-4,BottomUserCell-4,BottomUserCell-4,BottomUserCell-4))
         worksheet7.write("M40",'=IFERROR(IF(J40="","",INDEX(Community_Users!A:A,MATCH(J40,Community_Users!B:B,0))),"")')
         worksheet7.write("M41",'=IFERROR(IF(J41="","",INDEX(Community_Users!A:A,MATCH(J41,Community_Users!B:B,0))),"")')
         worksheet7.write("M42",'=IFERROR(IF(J42="","",INDEX(Community_Users!A:A,MATCH(J42,Community_Users!B:B,0))),"")')
@@ -618,9 +620,10 @@ def create_Supplier_excel(Supplier,Month1,Month2,Month3,year,monthofinterest):
         worksheet7.write("B6", "L3 Months", cell_format71)
         worksheet7.set_column(0, 0, 0.5)
         worksheet7.set_column(1, 1, 15)
+
         chart1 = workbook.add_chart({'type': 'column'})
         chart2 = workbook.add_chart({'type': 'line'})
-        chart1.set_title({'name': 'INDEX TO SUPPLIER COMMUNITY'})
+        chart1.set_title({'name': '{} INDEXED TO SUPPLIER COMMUNITY'.format(Supplier)})
         chart1.add_series({'name': "{}".format(Supplier.upper()),
                            'categories': '=Community_Data!$G$2:$H${}'.format(i + 1),
                            'values': '=Community_Data!$J$2:$J${}'.format(i + 1),
@@ -634,15 +637,16 @@ def create_Supplier_excel(Supplier,Month1,Month2,Month3,year,monthofinterest):
         chart1.set_x_axis({'name': 'Time (Month/Year)', 'num_font': {'size': 10}})
         chart1.set_y_axis({'name': 'Reports Run by {}'.format(Supplier)})
         chart2.set_y2_axis({'name': 'Index of {} to Community'.format(Supplier)})
-        chart1.set_size({'width': 1250, 'height': 300})
+        chart1.set_size({'width': 1350, 'height': 300})
         chart1.set_legend({'position': 'bottom'})
         chart1.combine(chart2)
         worksheet7.hide_gridlines(2)
         worksheet7.insert_chart('C10', chart1)
+        worksheet7.freeze_panes(9,0)
 
         ###Average Report per user
         chart1 = workbook.add_chart({'type': 'line'})
-        chart1.set_title({'name': 'AVERAGE REPORTS PER USER'})
+        chart1.set_title({'name': '{} VS SUPPLIER COMMUNITY (Average Report Per User)'.format(Supplier)})
         chart1.add_series({'name': "{}".format(Supplier.upper()),
                            'categories': '=Community_Data!$G$2:$H${}'.format(i + 1),
                            'values': '=Community_Data!$O$2:$O${}'.format(i + 1),
@@ -660,7 +664,7 @@ def create_Supplier_excel(Supplier,Month1,Month2,Month3,year,monthofinterest):
         worksheet7.insert_chart('C47', chart1)
         #######################
         chart1 = workbook.add_chart({'type': 'line'})
-        chart1.set_title({'name': 'AVERAGE REPORTS PER USER'})
+        chart1.set_title({'name': '{} VS SUPPLIER COMMUNITY (Average Report Per User)'.format(Supplier)})
         chart1.add_series({'name': "{}".format(Supplier.upper()),
                                 'categories': '=Community_Data!$G$2:$H${}'.format(i+1),
                                 'values': '=Community_Data!$O$2:$O${}'.format(i+1),
@@ -980,7 +984,6 @@ def create_Supplier_excel(Supplier,Month1,Month2,Month3,year,monthofinterest):
         worksheet3.set_column(6, 6, 2)
         worksheet3.hide_gridlines(2)
         worksheet3.hide()
-        #############################################################
         #Worksheet8
         #Community Users
         c.execute(CommunityUsers)
@@ -1003,27 +1006,34 @@ def create_Supplier_excel(Supplier,Month1,Month2,Month3,year,monthofinterest):
                 formula = '=If({}="RANK",1,{}+1)'.format(cell, cell)
                 worksheet8.write(row_num, 0, formula)
                 worksheet8.write(0, 0, "RANK")
-        worksheet8.hide()
         workbook.close()
+        ##
+        o_workbook = openpyxl.load_workbook(filename=workbookpath)
+        o_ws = o_workbook["Community_Users"]
+        o_ws.sheet_state = "veryHidden"
+        o_ws2 = o_workbook["HISTORY"]
+        o_ws2.sheet_state = "veryHidden"
+        o_ws3 = o_workbook["Community_Index"]
+        o_ws3.sheet_state = "veryHidden"
+        o_ws4 = o_workbook["Community_Data"]
+        o_ws4.sheet_state = "veryHidden"
+        o_ws5 = o_workbook["User_Sum"]
+        o_ws5.sheet_state = "veryHidden"
+        o_ws6 = o_workbook["Report_Sum"]
+        o_ws6.sheet_state = "veryHidden"
+        o_workbook.save(workbookpath)
+        o_workbook.close(workbookpath)
     ##########################################################################################################################
 
-Company_Name = c.execute('select * from Company_Table where Company_Name in ("COCA COLA","FERRERO")')
-# Company_Name = c.execute('select a.Company_Name from Company_Table a '
-#                          'LEFT OUTER JOIN USER_ID b on a.Company_Name = b.company '
-#                          'where Company_Name not LIKE "%SOBEYS%" '
-#                          'and Company_Name not LIKE "%LDAP%" '
-#                          'and Company_Name not LIKE "%ADVANTAGE%" '
-#                          'and Company_Name not LIKE "%LDAP%" '
-#                          'and Company_Name not LIKE "%ALL MARKET%" '
-#                          'and b.STATUS = "ACTIVE" '
-#                          'GROUP BY a.Company_Name')
-Company_Name = c.execute('select * from Company_Table')
+# Company_Name = c.execute('select * from Company_Table where Company_Name in '
+#                          '("COCA COLA","CHURCH DWIGHT")')
+
+Company_Name = c.execute('select * from Company_Table ORDER BY Company_Name ASC')
 data = c.fetchall()
 for v in data:
     try:
         print(v[0])
         create_Supplier_excel(v[0],datetime.now().month - 3,datetime.now().month - 2,datetime.now().month - 1,18,datetime.now().month - 1)
-
     except:
         pass
 
