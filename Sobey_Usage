@@ -36,7 +36,7 @@ def create_Supplier_excel(Supplier,Month1,Month2,Month3,year):
                                                                Month3,calendar.month_abbr[Month3].upper(),
                                                                Supplier,Month1,Month2,Month3,year)
     QueryUserSum ='SELECT ' \
-            '(c.First_name || " " || c.Last_name || " " || c.User_Id) AS DisplayName, ' \
+            '(c.First_name || " " || c.Last_name) AS DisplayName, ' \
             'c.EVP AS EVP, ' \
             'c.EVP_DEPT as Department, ' \
             'c.REGION AS REGION, ' \
@@ -192,6 +192,17 @@ def create_Supplier_excel(Supplier,Month1,Month2,Month3,year):
                'and a.year = {} ' \
                'and C.EVP NOT IN ("UNCLASSIFIED","MICHAEL MEDLINE") ' \
                'Group by month '.format(Supplier, Month1, Month2, Month3, year)
+    Dept_QUERY = 'SELECT ' \
+                  'C.DEPT as DEPT, ' \
+                  'COUNT(a.Report_Title) AS TOTAL ' \
+                  'from Data_Table a ' \
+                  'LEFT OUTER JOIN Partial_Translation b on b.Report_Name = a.Report_Title ' \
+                  'LEFT OUTER JOIN USER_ID c on a.User_Id = c.user_id ' \
+                  'WHERE a.COMPANY_NAME = "{}" and a.MONTH IN ("{}","{}","{}") ' \
+                  'and a.year = {} ' \
+                  'and C.EVP NOT IN ("UNCLASSIFIED","MICHAEL MEDLINE") ' \
+                  'Group by DEPT '.format(Supplier, Month1, Month2, Month3, year)
+
     EVP_NAMES = 'SELECT ' \
                'c.EVP AS EVP, ' \
                'sum(case when a.Month = "{}" THEN 1 ELSE "" END) AS {}, ' \
@@ -462,8 +473,23 @@ def create_Supplier_excel(Supplier,Month1,Month2,Month3,year):
                 worksheet8.write(i, col, row[j])
             col += 1
 
+    myothersel5 = c.execute(Dept_QUERY)
+    names6 = list(map(lambda x: x[0], myothersel5.description))
+    col = 32
+    PieLength_Dept = 0
+    for i in names6:
+        worksheet8.write(0, col, i)
+        col += 1
+    for i, row in enumerate(myothersel4):
+        col = 32
+        i += 1
+        PieLength_Dept = i
+        for j, value in enumerate(row):
+            worksheet8.write(i, col, row[j])
+            col += 1
 
-    # Formula
+
+        # Formula
     for row_num in range(1, rowcount + 2):
         R_SOB_CELL = xl_rowcol_to_cell(1, 4)
         I_SOB_CELL = xl_rowcol_to_cell(1, 8)
@@ -485,16 +511,17 @@ def create_Supplier_excel(Supplier,Month1,Month2,Month3,year):
         worksheet8.write(0, 19, "INDEX TO EVP")
         worksheet8.write(row_num, 20, formula4)
         worksheet8.write(0, 20, "AVERAGE REPORT PER USER")
-        worksheet8.write(row_num, 9, "TOTAL")
-        worksheet8.write(row_num, 10, '=SUM(K2:K{})'.format(row_num))
-        worksheet8.write(row_num, 11, '=SUM(L2:L{})'.format(row_num))
-        worksheet8.write(row_num, 12, '=SUM(M2:M{})'.format(row_num))
-        worksheet8.write(row_num, 13, '=SUM(N2:N{})'.format(row_num))
-        worksheet8.write(row_num, 14, '=SUM(O2:O{})'.format(row_num))
-        worksheet8.write(row_num, 15, '=SUM(P2:P{})'.format(row_num))
-        worksheet8.write(row_num, 16, '=SUM(Q2:Q{})'.format(row_num))
+    worksheet8.write(row_num, 9, "TOTAL")
+    worksheet8.write(row_num, 10, '=SUM(K2:K{})'.format(row_num))
+    worksheet8.write(row_num, 11, '=SUM(L2:L{})'.format(row_num))
+    worksheet8.write(row_num, 12, '=SUM(M2:M{})'.format(row_num))
+    worksheet8.write(row_num, 13, '=SUM(N2:N{})'.format(row_num))
+    worksheet8.write(row_num, 14, '=SUM(O2:O{})'.format(row_num))
+    worksheet8.write(row_num, 15, '=SUM(P2:P{})'.format(row_num))
+    worksheet8.write(row_num, 16, '=SUM(Q2:Q{})'.format(row_num))
     worksheet8.hide()
     #EVP Summary
+
     cell_format = workbook.add_format()
     cell_format.set_font_size(30)
     cell_format.set_align('center')
@@ -1161,10 +1188,10 @@ def create_Supplier_excel(Supplier,Month1,Month2,Month3,year):
     chart1.set_y_axis({'name': 'Number of Reports Run'})
     chart1.set_size({'width': 750, 'height': 500})
     chart1.set_legend({'position': 'bottom'})
-    worksheet3.insert_chart('K33', chart1)
+    worksheet3.insert_chart('K85', chart1)
 
     chart1 = workbook.add_chart({'type': 'pie'})
-    chart1.set_title({'name': 'SHARE OF REPORTS RUN' +"\n" + 'BY REGION'})
+    chart1.set_title({'name': 'SHARE OF REPORTS RUN' +"\n" + 'BY MONTH'})
     chart1.add_series({'name': "EVP",
                            'categories': '=SLV_INDEX_Data!$AD$2:$AD${}'.format(PieLength_Month + 1),
                            'values': '=SLV_INDEX_Data!$AE$2:$AE${}'.format(PieLength_Month +1),
@@ -1180,6 +1207,24 @@ def create_Supplier_excel(Supplier,Month1,Month2,Month3,year):
     chart1.set_size({'width': 750, 'height': 500})
     chart1.set_legend({'position': 'bottom'})
     worksheet3.insert_chart('K59', chart1)
+    chart1 = workbook.add_chart({'type': 'pie'})
+
+    chart1.set_title({'name': 'SHARE OF REPORTS RUN' +"\n" + 'BY DEPARTMENT'})
+    chart1.add_series({'name': "DEPARTMENT",
+                           'categories': '=SLV_INDEX_Data!$AG$2:$AG${}'.format(PieLength_Dept + 1),
+                           'values': '=SLV_INDEX_Data!$AH$2:$AH${}'.format(PieLength_Dept +1),
+                           'data_labels': {'value': True,
+                                           'font': {'rotation': 0},
+                                           'position': 'best_fit',
+                                           'percentage': True,
+                                           'category' : True,
+                                           'leader_lines': True
+                                           } })
+    chart1.set_x_axis({'num_font': {'size': 10}})
+    chart1.set_y_axis({'name': 'Number of Reports Run'})
+    chart1.set_size({'width': 750, 'height': 500})
+    chart1.set_legend({'position': 'bottom'})
+    worksheet3.insert_chart('K33', chart1)
 
     workbook.close()
 
