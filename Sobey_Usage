@@ -202,7 +202,8 @@ def create_Supplier_excel(Supplier,Month1,Month2,Month3,year):
                   'WHERE a.COMPANY_NAME = "{}" and a.MONTH IN ("{}","{}","{}") ' \
                   'and a.year = {} ' \
                   'and C.EVP NOT IN ("UNCLASSIFIED","MICHAEL MEDLINE") ' \
-                  'Group by DEPT '.format(Supplier, Month1, Month2, Month3, year)
+                  'Group by DEPT ' \
+                  'ORDER BY TOTAL'.format(Supplier, Month1, Month2, Month3, year)
 
     EVP_NAMES = 'SELECT ' \
                'c.EVP AS EVP, ' \
