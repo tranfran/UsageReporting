@@ -24,7 +24,8 @@ def create_Supplier_excel(Supplier,Month1,Month2,Month3,year):
             'sum(case when a.Month = "{}" THEN 1 ELSE "" END) AS {}, ' \
             'sum(case when a.Month = "{}" THEN 1 ELSE "" END) AS {}, ' \
             'sum(case when a.Month = "{}" THEN 1 ELSE "" END) AS {}, ' \
-            'COUNT(b.Partial_Definition) as Total ' \
+            'COUNT(b.Partial_Definition) as Total, ' \
+            'COUNT(DISTINCT(a.user_id)) "Count of Unique Sobeys IDs" ' \
             'from Data_Table a ' \
             'LEFT OUTER JOIN Partial_Translation b on b.Report_Name = a.Report_Title ' \
             'LEFT OUTER JOIN USER_ID c on a.User_Id = c.user_id ' \
@@ -632,6 +633,7 @@ def create_Supplier_excel(Supplier,Month1,Month2,Month3,year):
     worksheet5.conditional_format('C39:H{}'.format(rownum0+1000), {'type': 'no_blanks', 'format': border_format})
     worksheet5.conditional_format('E1:G1000', {'type': '3_color_scale'})
     worksheet5.conditional_format('H1:H1000', {'type': 'data_bar'})
+    worksheet5.set_column(0, 0, 2)
     worksheet5.set_column(2, 2, 5)
     worksheet5.set_column(3,35, 20)
     worksheet5.set_column(4, 6, 5)
@@ -865,13 +867,13 @@ def create_Supplier_excel(Supplier,Month1,Month2,Month3,year):
     BottomBorder = workbook.add_format()
     BottomBorder.set_bottom(1)
 
-    worksheet6.conditional_format("F22:J22", {'type': 'no_errors',
+    worksheet6.conditional_format("F22:I22", {'type': 'no_errors',
                                               'format': SobeysTop5,
                                               })
-    worksheet6.conditional_format("F22:J22", {'type': 'no_errors',
+    worksheet6.conditional_format("F22:I22", {'type': 'no_errors',
                                               'format': TopBorder,
                                               })
-    worksheet6.conditional_format("F27:J27", {'type': 'no_errors',
+    worksheet6.conditional_format("F27:I27", {'type': 'no_errors',
                                               'format': BottomBorder,
                                               })
     worksheet6.conditional_format("L22:P22", {'type': 'no_errors',
@@ -881,13 +883,13 @@ def create_Supplier_excel(Supplier,Month1,Month2,Month3,year):
                                               'format': BottomBorder,
                                               })
 
-    worksheet6.conditional_format("F23:J23", {'type': 'no_errors',
+    worksheet6.conditional_format("F23:I23", {'type': 'no_errors',
                                               'format': GreyCell,
                                               })
-    worksheet6.conditional_format("F25:J25", {'type': 'no_errors',
+    worksheet6.conditional_format("F25:I25", {'type': 'no_errors',
                                               'format': GreyCell,
                                               })
-    worksheet6.conditional_format("F27:J27", {'type': 'no_errors',
+    worksheet6.conditional_format("F27:I27", {'type': 'no_errors',
                                               'format': GreyCell,
                                               })
     worksheet6.conditional_format("L23:P23", {'type': 'no_errors',
@@ -899,9 +901,9 @@ def create_Supplier_excel(Supplier,Month1,Month2,Month3,year):
     worksheet6.conditional_format("L27:P27", {'type': 'no_errors',
                                               'format': GreyCell,
                                               })
-    worksheet6.merge_range("F21:J21", "Sobeys Top 5 Reports - Latest 3 Months",CenterAlign)
+    worksheet6.merge_range("F21:I21", "Sobeys Top 5 Reports - Latest 3 Months",CenterAlign)
     worksheet6.merge_range("F22:G22", "Report Name",SobeysTop5)
-    worksheet6.merge_range("H22:J22", "Total Reports Run",CenterAlign)
+    worksheet6.merge_range("H22:I22", "Total Reports Run",CenterAlign)
     worksheet6.write("F23", '=IF(Report_Sum!B7="TOTAL","",Report_Sum!B7)')
     worksheet6.write("F24", '=IF(Report_Sum!B8="TOTAL","",Report_Sum!B8)')
     worksheet6.write("F25", '=IF(Report_Sum!B9="TOTAL","",Report_Sum!B9)')
@@ -994,105 +996,87 @@ def create_Supplier_excel(Supplier,Month1,Month2,Month3,year):
     worksheet2.write(i+1, 4, formula3, cell_format2)
     worksheet2.write(i+1, 5, formula4, cell_format2)
 
-    ###Chart Overall
-    chart1 = workbook.add_chart({'type': 'column'})
-    chart1.set_title({'name': 'OVERALL REPORTS RUN'})
-    chart1.add_series({'name': 'Latest 3 Months ({}, {}, {})'.format(calendar.month_abbr[Month1].upper(),calendar.month_abbr[Month2].upper(),calendar.month_abbr[Month3].upper()),
-                           'categories': '=Report_Sum!$B$7:$B${}'.format(rownum+5),
-                           'values': '=Report_Sum!$F$7:$F${}'.format(rownum+5),
-                           'data_labels': {'value': True, 'font': {'rotation': -45}},})
-    chart1.set_style(8)
-    chart1.set_x_axis({'name': 'Report Names','num_font':{'size': 8}})
-    chart1.set_y_axis({'name': 'Number of Reports Run'})
-    chart1.set_size({'width': 975, 'height': 600})
-    chart1.set_legend({'position': 'bottom'})
-    worksheet2.insert_chart('H26', chart1)
-    ###CHART 2 - top 5
-    if rownum < 6:
-        chart1 = workbook.add_chart({'type': 'column'})
-        chart1.set_title({'name': 'TOP 5 REPORTS'})
-        chart1.add_series({'name': "{}".format(calendar.month_abbr[Month1].upper()),
-                           'categories': '=Report_Sum!$B$7:$B${}'.format(rownum+5),
-                           'values': '=Report_Sum!$C$7:$C${}'.format(rownum+5),
-                           'data_labels': {'value': True , 'font': {'rotation': -45}},})
-        chart1.add_series({'name': "{}".format(calendar.month_abbr[Month2].upper()),
-                            'categories': '=Report_Sum!$B$7:$B${}'.format(rownum+5),
-                           'values': '=Report_Sum!$D$7:$D${}'.format(rownum+5),
-                           'data_labels': {'value': True ,'font': {'rotation': -45}},})
-        chart1.add_series({'name': "{}".format(calendar.month_abbr[Month3].upper()),
-                            'categories': '=Report_Sum!$B$7:$B${}'.format(rownum+5),
-                           'values': '=Report_Sum!$E$7:$E${}'.format(rownum+5),
-                               'data_labels': {'value': True, 'font': {'rotation': -45}}, })
-    else:
-        chart1 = workbook.add_chart({'type': 'column'})
-        chart1.set_title({'name': 'TOP 5 REPORTS'})
-        chart1.add_series({'name': "{}".format(calendar.month_abbr[Month1].upper()),
-                           'categories': '=Report_Sum!$B$7:$B$11',
-                           'values': '=Report_Sum!$C$7:$C$11',
-                           'data_labels': {'value': True, 'font': {'rotation': -45}}, })
-        chart1.add_series({'name': "{}".format(calendar.month_abbr[Month2].upper()),
-                           'categories': '=Report_Sum!$B$7:$B$11',
-                           'values': '=Report_Sum!$D$7:$D$11',
-                           'data_labels': {'value': True, 'font': {'rotation': -45}}, })
-        chart1.add_series({'name': "{}".format(calendar.month_abbr[Month3].upper()),
-                           'categories': '=Report_Sum!$B$7:$B$11',
-                           'values': '=Report_Sum!$E$7:$E$11',
-                           'data_labels': {'value': True, 'font': {'rotation': -45}}, })
-
-    chart1.set_style(2)
-    chart1.set_x_axis({'num_font': {'size': 6}})
-    chart1.set_y_axis({'name': 'Number of Reports Run'})
-    chart1.set_size({'width': 450, 'height': 350})
-    chart1.set_legend({'position': 'bottom'})
-    worksheet2.insert_chart('H6', chart1)
-    ###Chart3 - bottom 5
-    if rownum < 6:
-        chart1 = workbook.add_chart({'type': 'column'})
-        chart1.set_title({'name': 'BOTTOM 5 REPORTS'})
-        chart1.add_series({'name': "{}".format(calendar.month_abbr[Month1].upper()),
-                           'categories': '=Report_Sum!$B$7:$B${}'.format(rownum + 5),
-                           'values': '=Report_Sum!$C$7:$C${}'.format(rownum + 5),
-                           'data_labels': {'value': True, 'font': {'rotation': -45}}, })
-        chart1.add_series({'name': "{}".format(calendar.month_abbr[Month2].upper()),
-                           'categories': '=Report_Sum!$B$7:$B${}'.format(rownum + 5),
-                           'values': '=Report_Sum!$D$7:$D${}'.format(rownum + 5),
-                           'data_labels': {'value': True, 'font': {'rotation': -45}}, })
-        chart1.add_series({'name': "{}".format(calendar.month_abbr[Month3].upper()),
-                           'categories': '=Report_Sum!$B$7:$B${}'.format(rownum + 5),
-                           'values': '=Report_Sum!$E$7:$E${}'.format(rownum + 5),
-                           'data_labels': {'value': True, 'font': {'rotation': -45}}, })
-    else:
-        chart1 = workbook.add_chart({'type': 'column'})
-        chart1.set_title({'name': 'BOTTOM 5 REPORTS'})
-        chart1.add_series({'name': "{}".format(calendar.month_abbr[Month1].upper()),
-                           'categories': '=Report_Sum!$B${}:$B${}'.format(rownum + 1, rownum + 5),
-                           'values': '=Report_Sum!$C${}:$C${}'.format(rownum + 1, rownum + 5),
-                           'data_labels': {'value': True, 'font': {'rotation': -45}}, })
-        chart1.add_series({'name': "{}".format(calendar.month_abbr[Month2].upper()),
-                           'categories': '=Report_Sum!$B${}:$B${}'.format(rownum + 1, rownum + 5),
-                           'values': '=Report_Sum!$D${}:$D${}'.format(rownum + 1, rownum + 5),
-                           'data_labels': {'value': True, 'font': {'rotation': -45}}, })
-        chart1.add_series({'name': "{}".format(calendar.month_abbr[Month3].upper()),
-                           'categories': '=Report_Sum!$B${}:$B${}'.format(rownum + 1, rownum + 5),
-                           'values': '=Report_Sum!$E${}:$E${}'.format(rownum + 1, rownum + 5),
-                           'data_labels': {'value': True, 'font': {'rotation': -45}}, })
-    chart1.set_style(2)
-    chart1.set_x_axis({'num_font': {'size': 6}})
-    chart1.set_y_axis({'name': 'Number of Reports Run'})
-    chart1.set_size({'width': 450, 'height': 350})
-    chart1.set_legend({'position': 'bottom'})
-    worksheet2.insert_chart('P6', chart1)
-
     border_format = workbook.add_format({'border': 1,'align': 'left','font_size': 10})
-    worksheet2.conditional_format('A5:F{}'.format(rownum+10), {'type': 'no_blanks', 'format': border_format})
+    worksheet2.conditional_format('A5:G{}'.format(rownum+10), {'type': 'no_blanks', 'format': border_format})
     worksheet2.set_column(2, 4, 5)
     worksheet2.set_column(1, 1, 35)
     worksheet2.conditional_format('C1:E1000', {'type': '3_color_scale'})
-    worksheet2.conditional_format('F1:F1000', {'type': 'data_bar'})
+    worksheet2.conditional_format('F1:G1000', {'type': 'data_bar'})
     worksheet2.set_column(0, 0, 5)
     worksheet2.set_column(5, 5, 6.5)
-    worksheet2.set_column(6, 6, 2)
+    worksheet2.set_column(6, 6, 6.5)
     worksheet2.hide_gridlines(2)
+
+    chart1 = workbook.add_chart({'type': 'pie'})
+    chart1.set_title({'name': 'SHARE OF REPORTS RUN' + "\n" + ' BY EXECUTIVE VP'})
+    chart1.add_series({'name': "EVP",
+                       'categories': '=SLV_INDEX_Data!$J$2:$J${}'.format(PieLength_EVP + 1),
+                       'values': '=SLV_INDEX_Data!$N$2:$N${}'.format(PieLength_EVP + 1),
+                       'data_labels': {'value': True,
+                                       'font': {'rotation': 0},
+                                       'position': 'best_fit',
+                                       'percentage': True,
+                                       'category': True,
+                                       'leader_lines': True
+                                       }})
+
+    chart1.set_x_axis({'num_font': {'size': 10}})
+    chart1.set_y_axis({'name': 'Number of Reports Run'})
+    chart1.set_size({'width': 750, 'height': 500})
+    chart1.set_legend({'position': 'bottom'})
+    worksheet2.insert_chart('I7', chart1)
+
+    chart1 = workbook.add_chart({'type': 'pie'})
+    chart1.set_title({'name': 'SHARE OF REPORTS RUN' + "\n" + 'BY REGION'})
+    chart1.add_series({'name': "EVP",
+                       'categories': '=SLV_INDEX_Data!$AA$2:$AA${}'.format(PieLength + 1),
+                       'values': '=SLV_INDEX_Data!$AB$2:$AB${}'.format(PieLength + 1),
+                       'data_labels': {'value': True,
+                                       'font': {'rotation': 0},
+                                       'position': 'best_fit',
+                                       'percentage': True,
+                                       'category': True,
+                                       'leader_lines': True
+                                       }})
+    chart1.set_x_axis({'num_font': {'size': 10}})
+    chart1.set_y_axis({'name': 'Number of Reports Run'})
+    chart1.set_size({'width': 750, 'height': 500})
+    chart1.set_legend({'position': 'bottom'})
+    worksheet2.insert_chart('I85', chart1)
+
+    chart1 = workbook.add_chart({'type': 'pie'})
+    chart1.set_title({'name': 'SHARE OF REPORTS RUN' + "\n" + 'BY MONTH'})
+    chart1.add_series({'name': "EVP",
+                       'categories': '=SLV_INDEX_Data!$AD$2:$AD${}'.format(PieLength_Month + 1),
+                       'values': '=SLV_INDEX_Data!$AE$2:$AE${}'.format(PieLength_Month + 1),
+                       'data_labels': {'value': True,
+                                       'font': {'rotation': 0},
+                                       'position': 'best_fit',
+                                       'percentage': True,
+                                       'category': True,
+                                       'leader_lines': True
+                                       }})
+    chart1.set_x_axis({'num_font': {'size': 10}})
+    chart1.set_y_axis({'name': 'Number of Reports Run'})
+    chart1.set_size({'width': 750, 'height': 500})
+    chart1.set_legend({'position': 'bottom'})
+
+    worksheet2.insert_chart('I59', chart1)
+
+    chart1 = workbook.add_chart({'type': 'column'})
+    chart1.set_title({'name': 'SHARE OF REPORTS RUN' + "\n" + 'BY DEPARTMENT'})
+    chart1.add_series({'name': "DEPARTMENT",
+                       'categories': '=SLV_INDEX_Data!$AG$2:$AG${}'.format(PieLength_Dept + 1),
+                       'values': '=SLV_INDEX_Data!$AH$2:$AH${}'.format(PieLength_Dept + 1),
+                       'data_labels': {'value': True,
+                                       'font': {'rotation': 0},
+                                       }})
+    chart1.set_x_axis({'num_font': {'size': 10}})
+    chart1.set_y_axis({'name': 'Number of Reports Run'})
+    chart1.set_size({'width': 750, 'height': 500})
+    chart1.set_legend({'position': 'bottom'})
+    worksheet2.set_column(7,7,2)
+    worksheet2.insert_chart('I33', chart1)
     #############################################################
     #User Sum
     c.execute(QueryUserSum)
