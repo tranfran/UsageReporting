@@ -1,31 +1,22 @@
 import sqlite3
-import openpyxl
 import calendar
 from datetime import datetime
 from xlsxwriter.utility import xl_rowcol_to_cell
 import os
+import openpyxl
 from xlsxwriter.workbook import Workbook
+
 conn = sqlite3.connect('Database_UsageReport.db')
 c = conn.cursor()
 
 def Create_Path(Supplier):
-    currentMonth = str((calendar.month_abbr[datetime.now().month-1].upper()))
-    # currentMonth = str(calendar.month_abbr[5].upper())
-    currentYear = str(datetime.now().year)
-    # path = r"C:\Users\csftn\USER_FRANCIS_TRAN\USAGE REPORT DATA\SUPPLIERS"
-    path = r"M:\8. Development\8. WIP Retail Services\Usage Report\SUPPLIER USAGE"
-    subpath = currentYear
-    subsubpath = currentMonth
-    if not os.path.exists(os.path.join(path, subpath)):
-        os.mkdir(os.path.join(path, subpath))
-    if not os.path.exists(os.path.join(path,subpath,subsubpath)):
-        os.mkdir(os.path.join(path,subpath,subsubpath))
-    if not os.path.exists(os.path.join(path, subpath, subsubpath, Supplier)):
-        os.mkdir(os.path.join(path, subpath, subsubpath, Supplier))
-    savepath = os.path.join(path, subpath, subsubpath, Supplier)
+    path = r"C:\Users\csftn\USER_FRANCIS_TRAN\USAGE REPORT DATA\SOBEYS"
+    savepath = os.path.join(path)
+    print(savepath)
     return savepath
 
-def create_Supplier_excel(Supplier,Month1,Month2,Month3,year,monthofinterest):
+def create_Supplier_excel(Supplier,Month1,Month2,Month3,year):
+    path = Create_Path(Supplier)
     Query = 'SELECT * from Data_Table a ' \
             'LEFT OUTER JOIN Partial_Translation b on ' \
             'b.Report_Name = a.Report_Title ' \
@@ -34,18 +25,23 @@ def create_Supplier_excel(Supplier,Month1,Month2,Month3,year,monthofinterest):
             'sum(case when a.Month = "{}" THEN 1 ELSE "" END) AS {}, ' \
             'sum(case when a.Month = "{}" THEN 1 ELSE "" END) AS {}, ' \
             'sum(case when a.Month = "{}" THEN 1 ELSE "" END) AS {}, ' \
-            'COUNT(b.Partial_Definition) as Total ' \
+            'COUNT(b.Partial_Definition) as Total, ' \
+            'COUNT(DISTINCT(a.user_id)) "Count of Unique Sobeys IDs" ' \
             'from Data_Table a ' \
-            'LEFT OUTER JOIN Partial_Translation b on ' \
-            'b.Report_Name = a.Report_Title ' \
+            'LEFT OUTER JOIN Partial_Translation b on b.Report_Name = a.Report_Title ' \
+            'LEFT OUTER JOIN USER_ID c on a.User_Id = c.user_id ' \
             'WHERE a.COMPANY_NAME = "{}" and a.MONTH IN ("{}","{}","{}") and a.year = {} ' \
+            'and C.EVP NOT IN ("UNCLASSIFIED","MICHAEL MEDLINE") ' \
             'Group by b.Partial_Definition ' \
             'Order by COUNT(b.Partial_Definition) DESC'.format(Month1,calendar.month_abbr[Month1].upper(),
                                                                Month2,calendar.month_abbr[Month2].upper(),
                                                                Month3,calendar.month_abbr[Month3].upper(),
                                                                Supplier,Month1,Month2,Month3,year)
-    Query3 ='SELECT ' \
-            '(c.First_name || " " || c.Last_name || " (" || a.User_Id || ")") AS DisplayName, ' \
+    QueryUserSum ='SELECT ' \
+            '(c.First_name || " " || c.Last_name) AS DisplayName, ' \
+            'c.EVP AS EVP, ' \
+            'c.bu as "BUSINESS UNIT", ' \
+            'c.REGION AS REGION, ' \
             'sum(case when a.Month = "{}" THEN 1 ELSE "" END) AS {}, ' \
             'sum(case when a.Month = "{}" THEN 1 ELSE "" END) AS {}, ' \
             'sum(case when a.Month = "{}" THEN 1 ELSE "" END) AS {}, ' \
@@ -54,6 +50,7 @@ def create_Supplier_excel(Supplier,Month1,Month2,Month3,year,monthofinterest):
             'LEFT OUTER JOIN Partial_Translation b on b.Report_Name = a.Report_Title ' \
             'LEFT OUTER JOIN USER_ID c on a.User_Id = c.user_id ' \
             'WHERE a.COMPANY_NAME = "{}" and a.MONTH IN ("{}","{}","{}") and a.year = {} ' \
+            'and C.EVP NOT IN ("UNCLASSIFIED","MICHAEL MEDLINE") ' \
             'Group by DisplayName ' \
             'Order by TOTAL DESC'.format(Month1,calendar.month_abbr[Month1].upper(),
                                          Month2,calendar.month_abbr[Month2].upper(),
@@ -69,14 +66,7 @@ def create_Supplier_excel(Supplier,Month1,Month2,Month3,year,monthofinterest):
             'LEFT OUTER JOIN Partial_Translation b on b.Report_Name = a.Report_Title ' \
             'LEFT OUTER JOIN USER_ID c on a.User_Id = c.user_id ' \
             'WHERE c.RETAIL_CLIENT = "SUPPLIER" ' \
-            'Group by c.RETAIL_CLIENT, a.year, a.month ' \
-            'Order by a.year ASC, a.month ASC'
-    CommunityIndexRowCount = 'SELECT ' \
-            'count(*)' \
-            'from Data_Table a ' \
-            'LEFT OUTER JOIN Partial_Translation b on b.Report_Name = a.Report_Title ' \
-            'LEFT OUTER JOIN USER_ID c on a.User_Id = c.user_id ' \
-            'WHERE c.RETAIL_CLIENT = "SUPPLIER" ' \
+            'and C.EVP NOT IN ("UNCLASSIFIED","MICHAEL MEDLINE") ' \
             'Group by c.RETAIL_CLIENT, a.year, a.month ' \
             'Order by a.year ASC, a.month ASC'
     SupplierIndex = 'SELECT ' \
@@ -88,7 +78,8 @@ def create_Supplier_excel(Supplier,Month1,Month2,Month3,year,monthofinterest):
             'from Data_Table a ' \
             'LEFT OUTER JOIN Partial_Translation b on b.Report_Name = a.Report_Title ' \
             'LEFT OUTER JOIN USER_ID c on a.User_Id = c.user_id ' \
-            'WHERE a.Company_Name = "{}"' \
+            'WHERE a.Company_Name = "{}" ' \
+            'and C.EVP NOT IN ("UNCLASSIFIED","MICHAEL MEDLINE") ' \
             'Group by a.Company_Name, a.year, a.month ' \
             'Order by a.year ASC, a.month ASC'.format(Supplier)
     CommunityReports = 'SELECT b.Partial_Definition AS ReportGroup, ' \
@@ -100,945 +91,1146 @@ def create_Supplier_excel(Supplier,Month1,Month2,Month3,year,monthofinterest):
             'LEFT OUTER JOIN Partial_Translation b on b.Report_Name = a.Report_Title ' \
             'LEFT OUTER JOIN USER_ID c on a.User_Id = c.user_id ' \
             'WHERE c.RETAIL_CLIENT = "SUPPLIER" AND a.MONTH IN ("{}","{}","{}") AND a.year = {} ' \
+            'and C.EVP NOT IN ("UNCLASSIFIED","MICHAEL MEDLINE") ' \
             'Group by b.Partial_Definition ' \
             'Order by COUNT(b.Partial_Definition) DESC'.format(Month1,calendar.month_abbr[Month1].upper(),
                                                                Month2,calendar.month_abbr[Month2].upper(),
                                                                Month3,calendar.month_abbr[Month3].upper(),
                                                                Month1,Month2,Month3,year)
-    CommunityUsers = 'SELECT ' \
-                     '(c.First_name || " " || c.Last_name || " (" || a.User_Id || ")") AS DisplayName, ' \
-                       'sum(case when a.Month = "{}" THEN 1 ELSE "" END) AS {}, ' \
-                       'sum(case when a.Month = "{}" THEN 1 ELSE "" END) AS {}, ' \
-                       'sum(case when a.Month = "{}" THEN 1 ELSE "" END) AS {}, ' \
-                       'COUNT(a.User_Id) as Total ' \
-                       'from Data_Table a ' \
-                       'LEFT OUTER JOIN Partial_Translation b on b.Report_Name = a.Report_Title ' \
-                       'LEFT OUTER JOIN USER_ID c on a.User_Id = c.user_id ' \
-                       'WHERE c.RETAIL_CLIENT = "SUPPLIER" AND a.MONTH IN ("{}","{}","{}") AND a.year = {} ' \
-                       'Group by a.User_Id ' \
-                       'Order by COUNT(a.User_Id) DESC'.format(Month1, calendar.month_abbr[Month1].upper(),
-                                                                          Month2, calendar.month_abbr[Month2].upper(),
-                                                                          Month3, calendar.month_abbr[Month3].upper(),
-                                                                          Month1, Month2, Month3, year)
-    #############################################################
-    c.execute(Query3)
-    test1 = c.fetchall()
-    if len(test1) == 0:
-        pass
-    else:
-        path = Create_Path(Supplier)
-        ##########################################################################
-        currentMonth = str(datetime.now().month - 1)
-        currentYear = str(datetime.now().year)
-        workbookpath = path + '\\' + Supplier + "-" + currentMonth + "-" + currentYear + ".xlsx"
+    SLVQUERY = 'SELECT ' \
+               '(c.First_name || " " || c.Last_name || " (" || a.User_Id || ")") AS DisplayName, ' \
+               'c.EVP AS EVP, ' \
+               'c.VP AS VP, ' \
+               'c.Director AS DIRECTOR, ' \
+               'sum(case when a.Month = "{}" THEN 1 ELSE "" END) AS {}, ' \
+               'sum(case when a.Month = "{}" THEN 1 ELSE "" END) AS {}, ' \
+               'sum(case when a.Month = "{}" THEN 1 ELSE "" END) AS {}, ' \
+               'COUNT(a.Report_Title) AS TOTAL,' \
+               'a.User_Id as USERID ' \
+               'from Data_Table a ' \
+               'LEFT OUTER JOIN Partial_Translation b on b.Report_Name = a.Report_Title ' \
+               'LEFT OUTER JOIN USER_ID c on a.User_Id = c.user_id ' \
+               'WHERE a.COMPANY_NAME = "{}" and a.MONTH IN ("{}","{}","{}") ' \
+               'and a.year = {} ' \
+               'and EVP NOT IN ("UNCLASSIFIED","MICHAEL MEDLINE") ' \
+               'Group by DisplayName ' \
+               'Order by TOTAL DESC'.format(Month1, calendar.month_abbr[Month1].upper(),
+                                            Month2, calendar.month_abbr[Month2].upper(),
+                                            Month3, calendar.month_abbr[Month3].upper(),
+                                            Supplier, Month1, Month2, Month3, year)
+    SLV_INDEX_QUERY ='SELECT ' \
+               'a.COMPANY_NAME, ' \
+               'sum(case when a.Month = "{}" THEN 1 ELSE "" END) AS {}, ' \
+               'sum(case when a.Month = "{}" THEN 1 ELSE "" END) AS {}, ' \
+               'sum(case when a.Month = "{}" THEN 1 ELSE "" END) AS {}, ' \
+               'COUNT(a.Report_Title) AS TOTAL, ' \
+               'Count(DISTINCT c.EVP) AS UNIQUE_EVP_COUNT, ' \
+               'Count(DISTINCT c.VP) AS UNIQUE_VP_COUNT, ' \
+               'Count(DISTINCT c.DIRECTOR) AS UNIQUE_DIRECTOR_COUNT, ' \
+               'Count(DISTINCT a.user_id) AS UNIQUE_User_COUNT ' \
+               'from Data_Table a ' \
+               'LEFT OUTER JOIN Partial_Translation b on b.Report_Name = a.Report_Title ' \
+               'LEFT OUTER JOIN USER_ID c on a.User_Id = c.user_id ' \
+               'WHERE a.COMPANY_NAME = "{}" and a.MONTH IN ("{}","{}","{}") ' \
+               'and a.year = {} ' \
+               'and EVP NOT IN ("UNCLASSIFIED","MICHAEL MEDLINE") ' \
+               'Group by a.COMPANY_NAME ' \
+               'Order by TOTAL DESC'.format(Month1, calendar.month_abbr[Month1].upper(),
+                                            Month2, calendar.month_abbr[Month2].upper(),
+                                            Month3, calendar.month_abbr[Month3].upper(),
+                                            Supplier, Month1, Month2, Month3, year)
+    EVP_INDEX_QUERY ='SELECT ' \
+               'c.BU as BU, ' \
+               'sum(case when a.Month = "{}" THEN 1 ELSE "" END) AS {}, ' \
+               'sum(case when a.Month = "{}" THEN 1 ELSE "" END) AS {}, ' \
+               'sum(case when a.Month = "{}" THEN 1 ELSE "" END) AS {}, ' \
+               'COUNT(a.Report_Title) AS TOTAL, ' \
+               'Count(DISTINCT c.VP) AS UNIQUE_VP_COUNT, ' \
+               'Count(DISTINCT c.DIRECTOR) AS UNIQUE_DIRECTOR_COUNT, ' \
+               'Count(DISTINCT a.user_id) AS UNIQUE_User_COUNT ' \
+               'from Data_Table a ' \
+               'LEFT OUTER JOIN Partial_Translation b on b.Report_Name = a.Report_Title ' \
+               'LEFT OUTER JOIN USER_ID c on a.User_Id = c.user_id ' \
+               'WHERE a.COMPANY_NAME = "{}" and a.MONTH IN ("{}","{}","{}") ' \
+               'and a.year = {} ' \
+               'and EVP NOT IN ("UNCLASSIFIED","MICHAEL MEDLINE") ' \
+               'Group by BU ' \
+               'Order by TOTAL DESC,BU ASC '.format(Month1, calendar.month_abbr[Month1].upper(),
+                                            Month2, calendar.month_abbr[Month2].upper(),
+                                            Month3, calendar.month_abbr[Month3].upper(),
+                                            Supplier, Month1, Month2, Month3, year)
 
-        workbook = Workbook(workbookpath)
-        worksheet7 = workbook.add_worksheet("Supplier Summary")
-        worksheet6 = workbook.add_worksheet("USER_RANK")
-        worksheet5 = workbook.add_worksheet("Community_Index")
-        worksheet4 = workbook.add_worksheet("Community_Data")
-        worksheet3 = workbook.add_worksheet("User_Sum")
-        worksheet2 = workbook.add_worksheet("Report_Sum")
-        worksheet = workbook.add_worksheet("HISTORY")
-        worksheet8 = workbook.add_worksheet("Community_Users")
+    VP_QUERY = 'SELECT ' \
+               'c.BU AS BU, ' \
+               'c.VP AS VP, ' \
+               'COUNT(a.Report_Title) AS TOTAL ' \
+               'from Data_Table a ' \
+               'LEFT OUTER JOIN Partial_Translation b on b.Report_Name = a.Report_Title ' \
+               'LEFT OUTER JOIN USER_ID c on a.User_Id = c.user_id ' \
+               'WHERE a.COMPANY_NAME = "{}" and a.MONTH IN ("{}","{}","{}") ' \
+               'and a.year = {} ' \
+               'and EVP NOT IN ("UNCLASSIFIED","MICHAEL MEDLINE") ' \
+               'Group by BU,VP ' \
+               'Order by ' \
+               'TOTAL DESC, BU ASC'.format(Supplier, Month1, Month2, Month3, year)
+    Region_QUERY = 'SELECT ' \
+               'c.REGION AS REGION, ' \
+               'COUNT(a.Report_Title) AS TOTAL ' \
+               'from Data_Table a ' \
+               'LEFT OUTER JOIN Partial_Translation b on b.Report_Name = a.Report_Title ' \
+               'LEFT OUTER JOIN USER_ID c on a.User_Id = c.user_id ' \
+               'WHERE a.COMPANY_NAME = "{}" and a.MONTH IN ("{}","{}","{}") ' \
+               'and a.year = {} ' \
+               'and C.EVP NOT IN ("UNCLASSIFIED","MICHAEL MEDLINE") ' \
+               'Group by REGION ' \
+               'Order by ' \
+               'TOTAL DESC'.format(Supplier, Month1, Month2, Month3, year)
+    Month_QUERY = 'SELECT ' \
+               'a.month as month, ' \
+               'COUNT(a.Report_Title) AS TOTAL ' \
+               'from Data_Table a ' \
+               'LEFT OUTER JOIN Partial_Translation b on b.Report_Name = a.Report_Title ' \
+               'LEFT OUTER JOIN USER_ID c on a.User_Id = c.user_id ' \
+               'WHERE a.COMPANY_NAME = "{}" and a.MONTH IN ("{}","{}","{}") ' \
+               'and a.year = {} ' \
+               'and C.EVP NOT IN ("UNCLASSIFIED","MICHAEL MEDLINE") ' \
+               'Group by month '.format(Supplier, Month1, Month2, Month3, year)
+    Dept_QUERY = 'SELECT ' \
+                  'C.DEPT as DEPT, ' \
+                  'COUNT(a.Report_Title) AS TOTAL ' \
+                  'from Data_Table a ' \
+                  'LEFT OUTER JOIN Partial_Translation b on b.Report_Name = a.Report_Title ' \
+                  'LEFT OUTER JOIN USER_ID c on a.User_Id = c.user_id ' \
+                  'WHERE a.COMPANY_NAME = "{}" and a.MONTH IN ("{}","{}","{}") ' \
+                  'and a.year = {} ' \
+                  'and C.EVP NOT IN ("UNCLASSIFIED","MICHAEL MEDLINE") ' \
+                  'Group by DEPT ' \
+                  'ORDER BY TOTAL DESC'.format(Supplier, Month1, Month2, Month3, year)
 
-        ###########################
-        print(len(test1))
-        c.execute(Query3)
-        mysel = c.execute(Query3)
-        names = list(map(lambda x: x[0], mysel.description))
-        col = 4
-        rownum = 1
-        cell_format = workbook.add_format()
-        cell_format.set_font_size(30)
-        cell_format.set_align('center')
-        cell_format.set_align('vcenter')
-        cell_format.set_font_color('#000075')
-        cell_format.set_bg_color('#FFFFFF')
-        worksheet6.merge_range("A1:V2", "{}".format(Supplier), cell_format)
-        cell_format2 = workbook.add_format()
-        cell_format2.set_font_size(15)
-        cell_format2.set_align('center')
-        cell_format2.set_align('vcenter')
-        cell_format2.set_font_color('#FFFFFF')
-        cell_format2.set_bg_color('#000075')
-        worksheet6.merge_range("A3:V5", "User Rank - Latest 3 months", cell_format2)
+    EVP_NAMES = 'SELECT ' \
+               'c.BU AS BU, ' \
+               'sum(case when a.Month = "{}" THEN 1 ELSE "" END) AS {}, ' \
+               'sum(case when a.Month = "{}" THEN 1 ELSE "" END) AS {}, ' \
+               'sum(case when a.Month = "{}" THEN 1 ELSE "" END) AS {}, ' \
+               'COUNT(a.Report_Title) AS TOTAL ' \
+               'from Data_Table a ' \
+               'LEFT OUTER JOIN Partial_Translation b on b.Report_Name = a.Report_Title ' \
+               'LEFT OUTER JOIN USER_ID c on a.User_Id = c.user_id ' \
+               'WHERE a.COMPANY_NAME = "{}" ' \
+               'and a.MONTH IN ("{}","{}","{}") ' \
+               'and a.year = {} ' \
+               'and EVP NOT IN ("UNCLASSIFIED","MICHAEL MEDLINE") ' \
+               'Group by BU ' \
+               'Order by TOTAL DESC'.format(Month1, calendar.month_abbr[Month1].upper(),
+                                            Month2, calendar.month_abbr[Month2].upper(),
+                                            Month3, calendar.month_abbr[Month3].upper(),
+                                            Supplier, Month1, Month2, Month3, year)
+    EVP_NAMES_ONLY  = 'SELECT ' \
+               'c.BU AS BU, ' \
+               'COUNT(a.Report_Title) AS TOTAL ' \
+               'from Data_Table a ' \
+               'LEFT OUTER JOIN Partial_Translation b on b.Report_Name = a.Report_Title ' \
+               'LEFT OUTER JOIN USER_ID c on a.User_Id = c.user_id ' \
+               'WHERE a.COMPANY_NAME = "{}" ' \
+               'and a.MONTH IN ("{}","{}","{}") ' \
+               'and a.year = {} ' \
+               'and EVP NOT IN ("UNCLASSIFIED","MICHAEL MEDLINE") ' \
+               'Group by BU ' \
+               'Order by TOTAL DESC'.format(
+                                            Supplier, Month1, Month2, Month3, year)
+    InactiveActiveUsersQuery = 'select DISTINCT(USER_ID.USER_ID),' \
+                               'USER_ID.BU BU, ' \
+                               'COUNT(DATA_TABLE.Report_Title) COUNT, ' \
+                               '(case when COUNT = 1 THEN "ACTIVE" ELSE "INACTIVE" END) AS STATUS ' \
+                               'FROM USER_ID ' \
+                               'LEFT JOIN ' \
+                               '(SELECT * FROM DATA_TABLE ' \
+                               'WHERE DATA_TABLE.COMPANY_NAME IN ("{}") ' \
+                               'and DATA_TABLE.month in ("{}","{}","{}") ' \
+                               'AND DATA_TABLE.YEAR IN ("{}")) DATA_TABLE ' \
+                               'ON USER_ID.USER_ID = DATA_TABLE.USER_ID ' \
+                               'Where EVP NOT IN ("UNCLASSIFIED","MICHAEL MEDLINE", "") ' \
+                               'AND USER_ID.COMPANY IN ("{}") ' \
+                               'GROUP BY USER_ID.USER_ID'.\
+                                format(Supplier, Month1, Month2, Month3, year,Supplier)
 
-        worksheet6.set_row(0,25)
-        worksheet6.set_row(1, 25)
-        for i in names:
-            worksheet6.write(9, col, i)
+    currentMonth = str(datetime.now().month - 1)
+    currentYear = str(datetime.now().year)
+
+    workbookpath = path + '\\' + Supplier + "-" + currentMonth + "-" + currentYear + ".xlsx"
+    workbook = Workbook(workbookpath)
+
+    worksheet6 = workbook.add_worksheet("Summary")
+    worksheet9 = workbook.add_worksheet("UsersActiveInactive")
+    worksheet8 = workbook.add_worksheet("SLV_INDEX_Data")
+    worksheet7 = workbook.add_worksheet("SLV_Data")
+    worksheet5 = workbook.add_worksheet("Community_Index")
+    worksheet4 = workbook.add_worksheet("Community_Data")
+    worksheet3 = workbook.add_worksheet("User_Sum")
+    worksheet2 = workbook.add_worksheet("Report_Sum")
+    worksheet = workbook.add_worksheet("HISTORY")
+    # #########################################################################
+    #Freeze
+    worksheet6.freeze_panes(3, 0)
+    worksheet5.freeze_panes(4, 0)
+    worksheet3.freeze_panes(6, 0)
+    worksheet2.freeze_panes(4, 0)
+    # #########################################################################
+    c.execute(EVP_NAMES_ONLY)
+    mysel = c.execute(EVP_NAMES_ONLY)
+    names = list(map(lambda x: x[0], mysel.description))
+    col = 5
+    i = 0
+    worksheet9.write(0, 7, "ACTIVE COUNT")
+    worksheet9.write(0, 8, "INACTIVE COUNT")
+    for i in names:
+        worksheet9.write(0, col, i)
+        col += 1
+    for i, row in enumerate(mysel):
+        col = 5
+        i += 1
+        formula_TOTAL_Useres = '=COUNTIFS(B:B,F{})'.format(i + 1)
+        formula_Active = '=COUNTIFS(D:D,"active",B:B,F{})'.format(i+1)
+        formula_InActive = '=COUNTIFS(D:D,"Inactive",B:B,F{})'.format(i+1)
+        for j, value in enumerate(row):
+            worksheet9.write(i, col, row[j])
+            worksheet9.write(i, col+1, formula_Active)
+            worksheet9.write(i, col+2, formula_InActive)
+            worksheet9.write(i, col + 3, formula_TOTAL_Useres)
             col += 1
-        for i, row in enumerate(mysel):
-            col = 4
-            i += 10
-            rownum += 1
-            for j, value in enumerate(row):
-                worksheet6.write(i, col, row[j])
-                col += 1
-        cell_format6 = workbook.add_format()
-        cell_format6.set_align('center')
-        for row_num in range(9, i + 1):
-            cell = xl_rowcol_to_cell(row_num - 1, 3)
-            formula = '=If({}="RANK",1,{}+1)'.format(cell, cell)
-            worksheet6.write(row_num, 3, formula, cell_format6)
-            worksheet6.write(9, 3, "RANK")
+        rowcount = i
 
-        worksheet6.write(i + 1, 4, "TOTAL")
-        formula = '=" " & Sum(F7:F{})'.format(i + 1)
-        formula2 = '=" " & Sum(G7:G{})'.format(i + 1)
-        formula3 = '=" " & Sum(H7:H{})'.format(i + 1)
-        formula4 = '=" " & Sum(I7:I{})'.format(i + 1)
-        Total_Reports_Run_Cell = i + 2
-        BottomUserCell = i + 1
+    worksheet9.write(i+1, 5, "TOTAL")
+    worksheet9.write(i+1, col-1, '=sum(G2:G{})'.format(rowcount+1))
+    worksheet9.write(i+1, col, '=sum(H2:H{})'.format(rowcount+1))
+    worksheet9.write(i+1, col+1, '=sum(I2:I{})'.format(rowcount+1))
+    worksheet9.write(i+1, col+2, '=sum(J2:J{})'.format(rowcount + 1))
 
-        worksheet6.write(i + 1, 5, formula, cell_format6)
-        worksheet6.write(i + 1, 6, formula2, cell_format6)
-        worksheet6.write(i + 1, 7, formula3, cell_format6)
-        worksheet6.write(i + 1, 8, formula4, cell_format6)
-        border_format = workbook.add_format({'border': 1, 'align': 'left', 'font_size': 10})
-        worksheet6.conditional_format('A5:F{}'.format(rownum + 10), {'type': 'no_blanks',})
-        worksheet6.set_column(5, 7, 0)
-        worksheet6.set_column(4, 4, 34.89)
-        worksheet6.set_column(8, 8, 13.22)
-        worksheet6.conditional_format('I1:I1000', {'type': 'data_bar'})
-        worksheet6.hide_gridlines(2)
-        ##
-        c.execute(Query2)
-        mysel = c.execute(Query2)
-        names = list(map(lambda x: x[0], mysel.description))
-        col = 12
-        rownum = 1
-        for i in names:
-            worksheet6.write(9, col, i)
-            col += 1
-        for i, row in enumerate(mysel):
-            col = 12
-            i += 10
-            rownum += 1
-            for j, value in enumerate(row):
-                worksheet6.write(i, col, row[j])
-                col += 1
-
-        BottomReportCell = i + 1
-        cell_format6 = workbook.add_format()
-        cell_format6.set_align('center')
-        for row_num in range(9, i + 1):
-            cell = xl_rowcol_to_cell(row_num - 1, 11)
-            formula = '=If({}="RANK",1,{}+1)'.format(cell, cell)
-            worksheet6.write(row_num, 11, formula, cell_format6)
-            worksheet6.write(9, 11, "RANK")
-
-        worksheet6.write(i + 1, 12, "TOTAL")
-        formula = '=" " & Sum(N7:N{})'.format(i + 1)
-        formula2 = '=" " & Sum(O7:O{})'.format(i + 1)
-        formula3 = '=" " & Sum(P7:P{})'.format(i + 1)
-        formula4 = '=" " & Sum(Q7:Q{})'.format(i + 1)
-
-        worksheet6.write(i + 1, 13, formula, cell_format6)
-        worksheet6.write(i + 1, 14, formula2, cell_format6)
-        worksheet6.write(i + 1, 15, formula3, cell_format6)
-        worksheet6.write(i + 1, 16, formula4, cell_format6)
-        worksheet6.set_column(13, 15, 0)
-        worksheet6.set_column(12, 12, 34.89)
-        worksheet6.conditional_format('Q1:Q1000', {'type': 'data_bar'})
-        worksheet6.hide_gridlines(2)
-
-        cell_format3 = workbook.add_format()
-        cell_format3.set_font_size(12)
-        cell_format3.set_align('center')
-        cell_format3.set_align('vcenter')
-        cell_format3.set_font_color('#FFFFFF')
-        cell_format3.set_bg_color('#000075')
-        worksheet6.write("D10", "RANK", cell_format3)
-        worksheet6.write("E10", "USER", cell_format3)
-        worksheet6.write("I10", "REPORTS RUN", cell_format3)
-        worksheet6.write("L10", "RANK", cell_format3)
-        worksheet6.write("M10", "REPORT NAME", cell_format3)
-        worksheet6.write("Q10", "REPORTS RUN", cell_format3)
-        worksheet6.set_column(16,16,15)
-        worksheet6.freeze_panes(5,0)
-        #############################################################
-        #Community most pop report
-        c.execute(CommunityReports)
-        ReportQuery = c.execute(CommunityReports)
-        names = list(map(lambda x: x[0], ReportQuery.description))
-        ###############
-        col = 3
-        rownum0 = 29
-        for i in names:
-            worksheet5.write(38, col, i)
-            col += 1
-        for i, row in enumerate(ReportQuery):
-            col = 3
-            i += 39
-            rownum0 += 1
-            for j, value in enumerate(row):
-                worksheet5.write(i, col, row[j])
-                col += 1
-
-        cell_format2 = workbook.add_format()
-        cell_format2.set_align('center')
-        for row_num in range(39, i + 1):
-            cell = xl_rowcol_to_cell(row_num - 1, 2)
-            formula = '=If({}="RANK",1,{}+1)'.format(cell, cell)
-            worksheet5.write(row_num, 2, formula, cell_format2)
-            worksheet5.write(38, 2, "RANK")
-
-        cell_format0 = workbook.add_format()
-        cell_format0.set_font_size(12)
-        cell_format0.set_align('center')
-        cell_format0.set_align('vcenter')
-        cell_format0.set_font_color('#FFFFFF')
-        cell_format0.set_bg_color('009900')
-        worksheet5.merge_range("C38:H38", "TOP COMMUNITY REPORTS",cell_format0)
-        worksheet5.set_column('B:B', None, None, {'hidden': 1})
-
-        worksheet5.write(i + 1, 3, "TOTAL")
-        formula = '=" " & Sum(E7:E{})'.format(i + 1)
-        formula2 = '=" " & Sum(F7:F{})'.format(i + 1)
-        formula3 = '=" " & Sum(G7:G{})'.format(i + 1)
-        formula4 = '=" " & Sum(H7:H{})'.format(i + 1)
-        worksheet5.write(i+1, 4, formula, cell_format2)
-        worksheet5.write(i+1, 5, formula2, cell_format2)
-        worksheet5.write(i+1, 6, formula3, cell_format2)
-        worksheet5.write(i+1, 7, formula4, cell_format2)
-        border_format = workbook.add_format({'border': 1,'align': 'left','font_size': 10})
-        worksheet5.conditional_format('C39:H{}'.format(rownum0+1000), {'type': 'no_blanks', 'format': border_format})
-        worksheet5.conditional_format('E1:G1000', {'type': '3_color_scale'})
-        worksheet5.conditional_format('H1:H1000', {'type': 'data_bar'})
-        worksheet5.set_column(2, 2, 5)
-        worksheet5.set_column(3,35, 20)
-        worksheet5.set_column(4, 6, 5)
-        worksheet5.set_column(7, 7, 8)
-        worksheet5.set_column(8, 8, 5)
-        ###CHART 2 - top 5
-        if rownum0 < 6:
-            chart1 = workbook.add_chart({'type': 'column'})
-            chart1.set_title({'name': 'TOP 10 COMMUNITY REPORTS'})
-            chart1.add_series({'name': "{}".format(calendar.month_abbr[Month1].upper()),
-                               'categories': '=Community_Index!$D$40:$D${}'.format(rownum0 + 9),
-                               'values': '=Community_Index!$E$40:$E${}'.format(rownum0 + 9),
-                               'data_labels': {'value': True, 'font': {'rotation': -90}}, })
-            chart1.add_series({'name': "{}".format(calendar.month_abbr[Month2].upper()),
-                               'categories': '=Community_Index!$D$40:$D${}'.format(rownum0 + 9),
-                               'values': '=Community_Index!$F$40:$F${}'.format(rownum0 + 9),
-                               'data_labels': {'value': True, 'font': {'rotation': -90}}, })
-            chart1.add_series({'name': "{}".format(calendar.month_abbr[Month3].upper()),
-                               'categories': '=Community_Index!$D$40:$D${}'.format(rownum0 + 9),
-                               'values': '=Community_Index!$G$40:$G${}'.format(rownum0 + 9),
-                               'data_labels': {'value': True, 'font': {'rotation': -90}}, })
-        else:
-            chart1 = workbook.add_chart({'type': 'column'})
-            chart1.set_title({'name': 'TOP 10 COMMUNITY REPORTS'})
-            chart1.add_series({'name': "{}".format(calendar.month_abbr[Month1].upper()),
-                               'categories': '=Community_Index!$D$40:$D$49',
-                               'values': '=Community_Index!$E$40:$E$49',
-                               'data_labels': {'value': True, 'font': {'rotation': -90}}, })
-            chart1.add_series({'name': "{}".format(calendar.month_abbr[Month2].upper()),
-                               'categories': '=Community_Index!$D$40:$D$49',
-                               'values': '=Community_Index!$F$40:$F$49',
-                               'data_labels': {'value': True, 'font': {'rotation': -90}}, })
-            chart1.add_series({'name': "{}".format(calendar.month_abbr[Month3].upper()),
-                               'categories': '=Community_Index!$D$40:$D$49',
-                               'values': '=Community_Index!$G$40:$G$49',
-                               'data_labels': {'value': True, 'font': {'rotation': -90}}, })
-        chart1.set_style(2)
-        chart1.set_x_axis({'num_font': {'size': 8}})
-        chart1.set_y_axis({'name': 'Number of Reports Run'})
-        chart1.set_size({'width': 945, 'height': 350})
-        chart1.set_legend({'position': 'bottom'})
-        worksheet5.insert_chart('J38', chart1)
-        ###Chart3 - bottom 5
-        if rownum0 < 6:
-            chart1 = workbook.add_chart({'type': 'column'})
-            chart1.set_title({'name': 'BOTTOM 10 COMMUNITY REPORTS'})
-            chart1.add_series({'name': "{}".format(calendar.month_abbr[Month1].upper()),
-                               'categories': '=Community_Index!$D$7:$D${}'.format(rownum0 + 5),
-                               'values': '=Community_Index!$E$7:$E${}'.format(rownum0 + 5),
-                               'data_labels': {'value': True, 'font': {'rotation': -45}}, })
-            chart1.add_series({'name': "{}".format(calendar.month_abbr[Month2].upper()),
-                               'categories': '=Community_Index!$D$7:$D${}'.format(rownum0 + 5),
-                               'values': '=Community_Index!$F$7:$F${}'.format(rownum0 + 5),
-                               'data_labels': {'value': True, 'font': {'rotation': -45}}, })
-            chart1.add_series({'name': "{}".format(calendar.month_abbr[Month3].upper()),
-                               'categories': '=Community_Index!$D$7:$D${}'.format(rownum0 + 5),
-                               'values': '=Community_Index!$G$7:$G${}'.format(rownum0 + 5),
-                               'data_labels': {'value': True, 'font': {'rotation': -45}}, })
-        else:
-            chart1 = workbook.add_chart({'type': 'column'})
-            chart1.set_title({'name': 'BOTTOM 10 COMMUNITY REPORTS'})
-            chart1.add_series({'name': "{}".format(calendar.month_abbr[Month1].upper()),
-                               'categories': '=Community_Index!$D${}:$D${}'.format(rownum0 + 1, rownum0 + 10),
-                               'values': '=Community_Index!$E${}:$E${}'.format(rownum0 + 1, rownum0 + 10),
-                               'data_labels': {'value': True, 'font': {'rotation': -90}}, })
-            chart1.add_series({'name': "{}".format(calendar.month_abbr[Month2].upper()),
-                               'categories': '=Community_Index!$D${}:$D${}'.format(rownum0 + 1, rownum0 + 10),
-                               'values': '=Community_Index!$F${}:$F${}'.format(rownum0 + 1, rownum0 + 10),
-                               'data_labels': {'value': True, 'font': {'rotation': -90}}, })
-            chart1.add_series({'name': "{}".format(calendar.month_abbr[Month3].upper()),
-                               'categories': '=Community_Index!$D${}:$D${}'.format(rownum0 + 1, rownum0 + 10),
-                               'values': '=Community_Index!$G${}:$G${}'.format(rownum0 + 1, rownum0 + 10),
-                               'data_labels': {'value': True, 'font': {'rotation': -90}}, })
-        chart1.set_style(2)
-        chart1.set_x_axis({'num_font': {'size': 8}})
-        chart1.set_y_axis({'name': 'Number of Reports Run'})
-        chart1.set_size({'width': 945, 'height': 350})
-        chart1.set_legend({'position': 'bottom'})
-        worksheet5.insert_chart('J57', chart1)
-        #############################################################
-        mysel1 = c.execute(SupplierIndex)
-        for i, row in enumerate(mysel1):
-            i += 1
-        RowcountCI = i + 1
-
-        mysel = c.execute(CommunityIndex)
-        names = list(map(lambda x: x[0], mysel.description))
+    c.execute(InactiveActiveUsersQuery)
+    mysel = c.execute(InactiveActiveUsersQuery)
+    names = list(map(lambda x: x[0], mysel.description))
+    col = 0
+    for i in names:
+        worksheet9.write(0, col, i)
+        col += 1
+    for i, row in enumerate(mysel):
         col = 0
-        for i in names:
-            worksheet4.write(0, col,i)
-            col +=1
-        for i, row in enumerate(mysel):
-            col = 0
-            i += 1
-            for j, value in enumerate(row):
-                if j == 2:
-                    Month_name = str((calendar.month_abbr[row[j]].upper()))
-                    worksheet4.write(i, col, Month_name)
-                elif j == 1:
-                    worksheet4.write(i, col, "20" + str(row[j]))
-                else:
-                    worksheet4.write(i, col, row[j])
-                col += 1
-        myothersel = c.execute(SupplierIndex)
-        names2 = list(map(lambda x: x[0], myothersel.description))
-        for i in names2:
-            worksheet4.write(0, col,i)
-            col +=1
-        for i, row in enumerate(myothersel):
-            col = 5
-            i += 1
-            for j, value in enumerate(row):
-                if j == 2:
-                    Month_name = str((calendar.month_abbr[row[j]].upper()))
-                    worksheet4.write(i, col, Month_name)
-                elif j == 1:
-                    worksheet4.write(i, col, "20" + str(row[j]))
-                else:
-                    worksheet4.write(i, col, row[j])
-                col += 1
+        i += 1
+        for j, value in enumerate(row):
+            worksheet9.write(i, col, row[j])
+            col += 1
 
+    chart1 = workbook.add_chart({'type': 'column'})
+    chart1.set_title({'name': ('Business Unit' + "\n" + '(INACTIVE VS ACTIVE USERS LATEST 3 MONTHS)')})
+    chart1.add_series({'name': "TOTAL USERS",
+                           'categories': '=UsersActiveInactive!$F$2:$F${}'.format(rowcount + 2),
+                           'values': '=UsersActiveInactive!$J$2:$J${}'.format(rowcount + 2),
+                           'data_labels': {'value': True, 'font': {'rotation': -45}}, })
+    chart1.add_series({'name': "ACTIVE USERS",
+                           'categories': '=UsersActiveInactive!$F$2:$F${}'.format(rowcount + 2),
+                           'values': '=UsersActiveInactive!$H$2:$H${}'.format(rowcount + 2),
+                           'data_labels': {'value': True, 'font': {'rotation': -45}}, })
+    chart1.add_series({'name': "INACTIVE USERS",
+                           'categories': '=UsersActiveInactive!$F$2:$F${}'.format(rowcount + 2),
+                           'values': '=UsersActiveInactive!$I$2:$I${}'.format(rowcount + 2),
+                           'data_labels': {'value': True, 'font': {'rotation': -45}}, })
+    chart1.set_style(2)
+    chart1.set_x_axis({'num_font': {'size': 12}})
+    chart1.set_y_axis({'name': 'Number of Reports Run'})
+    chart1.set_size({'width': 1350, 'height': 300})
+    chart1.set_legend({'position': 'bottom'})
+    worksheet6.insert_chart('B62', chart1)
+    # #########################################################################
+    c.execute(EVP_NAMES)
+    mysel = c.execute(EVP_NAMES)
+    EVPNAMES = list(map(lambda x: x[0], mysel))
+    col = 2
+    VP_FORMAT = workbook.add_format()
+    VP_FORMAT.set_font_size(12)
+    VP_FORMAT.set_align('center')
+    VP_FORMAT.set_align('vcenter')
+    VP_FORMAT.set_font_color('#FFFFFF')
+    VP_FORMAT.set_bg_color('009900')
+    for m in EVPNAMES:
+        print(m)
+        worksheet6.write(80, col, m)
+        worksheet6.conditional_format(81,col,81,col+1, {'type': 'no_errors',
+                                                  'format': VP_FORMAT})
+        dyno_VP_QUERY = 'SELECT ' \
+               'c.VP AS "VP REPORTS RUN", ' \
+               'COUNT(a.Report_Title) AS TOTAL ' \
+               'from Data_Table a ' \
+               'LEFT OUTER JOIN Partial_Translation b on b.Report_Name = a.Report_Title ' \
+               'LEFT OUTER JOIN USER_ID c on a.User_Id = c.user_id ' \
+               'WHERE a.COMPANY_NAME = "{}" and a.MONTH IN ("{}","{}","{}") ' \
+               'and a.year = {} ' \
+               'and EVP NOT IN ("UNCLASSIFIED","MICHAEL MEDLINE") ' \
+               'and c.BU IN ("{}") ' \
+               'Group by BU,VP ' \
+               'Order by ' \
+               'TOTAL DESC'.format(Supplier, Month1, Month2, Month3, year,m)
 
-        #Formula
-        for row_num in range(1, i + 1):
-            ID_cell = xl_rowcol_to_cell(row_num, 8)
-            ID_cell2 = xl_rowcol_to_cell(row_num, 6)
-            ID_cell3 =xl_rowcol_to_cell(row_num, 7)
-            Report_cell = xl_rowcol_to_cell(row_num, 9)
-            Report_cell2 = xl_rowcol_to_cell(row_num, 6)
-            Report_cell3 = xl_rowcol_to_cell(row_num, 7)
-            Index_Cell = xl_rowcol_to_cell(row_num, 11)
-            Index_Cell2 = xl_rowcol_to_cell(row_num, 10)
-            Community_cell = xl_rowcol_to_cell(row_num, 6)
-            Community_ID_cell = xl_rowcol_to_cell(row_num, 7)
-            Supplier_ID_cell = xl_rowcol_to_cell(row_num, 8)
-            Supplier_Report_cell = xl_rowcol_to_cell(row_num, 9)
-            formula = '={}/sumifs(D:D,B:B,{},C:C,{})'.format(ID_cell,ID_cell2,ID_cell3)
-            formula2 = '={}/sumifs(E:E,B:B,{},C:C,{})'.format(Report_cell, Report_cell2, Report_cell3)
-            formula3 = '=Round(({}/{})*100,0)'.format(Index_Cell, Index_Cell2)
-            formula4 = '=ROUND(SUMIFS(E:E,B:B,{},C:C,{})/SUMIFS(D:D,B:B,{},C:C,{}),0)'.format(Community_cell,Community_ID_cell,Community_cell,Community_ID_cell)
-            formula5 = '=Round(({}/{}),0)'.format(Supplier_Report_cell, Supplier_ID_cell)
-
-            worksheet4.write(row_num, 10, formula)
-            worksheet4.write(0, 10, "ID INDEX")
-            worksheet4.write(row_num, 11, formula2)
-            worksheet4.write(0, 11, "REPORT INDEX")
-            worksheet4.write(row_num, 12, formula3)
-            worksheet4.write(0, 12, "INDEX TO COMMUNITY")
-            worksheet4.write(row_num, 13, formula4)
-            worksheet4.write(0, 13, "COMMUNITY Community average")
-            worksheet4.write(row_num, 14, formula5)
-            worksheet4.write(0, 14, "Supplier Average")
-
-        worksheet4.hide()
-        #############################################################
-        #Community Graph
-        cell_format = workbook.add_format()
-        cell_format.set_font_size(30)
-        cell_format.set_align('center')
-        cell_format.set_align('vcenter')
-        cell_format.set_font_color('#FFFFFF')
-        cell_format.set_bg_color('009900')
-        worksheet5.merge_range("A1:P4", "COMMUNITY COMPARISON FOR {}".format(Supplier),cell_format)
-        chart1 = workbook.add_chart({'type': 'column'})
-        chart2 = workbook.add_chart({'type': 'line'})
-        chart1.set_title({'name': '{} INDEXED TO ENTIRE SUPPLIER COMMUNITY'.format(Supplier)})
-        chart1.add_series({'name': "{}".format(Supplier.upper()),
-                                'categories': '=Community_Data!$G$2:$H${}'.format(i+1),
-                                'values': '=Community_Data!$J$2:$J${}'.format(i+1),
-                                'data_labels': {'value': True, 'font': {'rotation': 0}, 'position': 'center'}, })
-        chart2.add_series({'name': "INDEX",
-                                'categories': '=Community_Data!$G$2:$H${}'.format(i+1),
-                                'values': '=Community_Data!$M$2:$M${}'.format(i+1),
-                                'y2_axis': True,
-                                'data_labels': {'value': True, 'font': {'rotation': 0}, 'position': 'top', }})
-        chart1.set_style(2)
-        chart1.set_x_axis({'name' : 'Time (Month/Year)','num_font': {'size': 10}})
-        chart1.set_y_axis({'name': 'Reports Run by {}'.format(Supplier)})
-        chart2.set_y2_axis({'name': 'Index of {} to Community'.format(Supplier)})
-        chart1.set_size({'width': 1350, 'height': 300})
-        chart1.set_legend({'position': 'bottom'})
-        chart1.combine(chart2)
-        worksheet5.hide_gridlines(2)
-        worksheet5.insert_chart('B6', chart1)
-        #############################################################
-        # Supplier Summary
-        cell_format7 = workbook.add_format()
-        cell_format7.set_font_size(30)
-        cell_format7.set_align('center')
-        cell_format7.set_align('vcenter')
-        cell_format7.set_font_color('#000040')
-        cell_format7.set_bg_color('#FFFFFF')
-        worksheet7.merge_range("C1:V4", "Sobeys Collaborative Gateway Usage Report", cell_format7)
-        worksheet7.merge_range("C27:F27","Total Reports run in latest 3 Months")
-        worksheet7.write("G27","=User_Rank!i{}".format(Total_Reports_Run_Cell))
-        formulaPercentChangeFromPreviousQuarter = \
-            '=IFERROR(sum(Community_Data!J{}:J{})/sum(Community_Data!J{}:j{})-1,0)'\
-            .format(RowcountCI, RowcountCI - 2, RowcountCI - 3, RowcountCI - 5)
-        worksheet7.write("N27",formulaPercentChangeFromPreviousQuarter)
-        worksheet7.set_column(13, 13, 10)
-        percent_fmt = workbook.add_format({'num_format': '0.00%'})
-        worksheet7.merge_range("J27:M27", "Report % Chg vs Prior Quarter")
-        worksheet7.write("N27", formulaPercentChangeFromPreviousQuarter,percent_fmt)
-
-        Redformat = workbook.add_format({'bg_color': '#FFC7CE',
-                                       'font_color': '#9C0006'})
-        Greenformat = workbook.add_format({'bg_color': '#C6EFCE',
-                                       'font_color': '#006100'})
-        worksheet7.conditional_format('N27', {'type': 'cell',
-                                                'criteria': '>=',
-                                                'value': 0,
-                                                'format': Greenformat})
-        worksheet7.conditional_format('N27', {'type': 'cell',
-                                                'criteria': '<',
-                                                'value': 0,
-                                                'format': Redformat})
-        # Titles for Tables
-        cell_format_Tables = workbook.add_format()
-        cell_format_Tables.set_font_size(12)
-        cell_format_Tables.set_align('center')
-        cell_format_Tables.set_align('vcenter')
-        cell_format_Tables.set_font_color('#FFFFFF')
-        cell_format_Tables.set_bg_color('#000075')
-
-        worksheet7.set_column(2, 2, 15)
-        worksheet7.merge_range("C29:G29", "Top 5 Reports - Latest 3 Months",cell_format_Tables)
-        worksheet7.merge_range("C30:E30", "Name")
-        worksheet7.merge_range("F30:G30", "Community Rank")
-        worksheet7.write("C31", '=IF(USER_RANK!M11="TOTAL","",USER_RANK!M11)')
-        worksheet7.write("C32", '=IF(USER_RANK!M12="TOTAL","",USER_RANK!M12)')
-        worksheet7.write("C33", '=IF(USER_RANK!M13="TOTAL","",USER_RANK!M13)')
-        worksheet7.write("C34", '=IF(USER_RANK!M14="TOTAL","",USER_RANK!M14)')
-        worksheet7.write("C35", '=IF(USER_RANK!M15="TOTAL","",USER_RANK!M15)')
-        worksheet7.write("F31", "=IFERROR(INDEX(Community_Index!C:C,MATCH(C31,Community_Index!D:D,0)),"")")
-        worksheet7.write("F32", "=IFERROR(INDEX(Community_Index!C:C,MATCH(C32,Community_Index!D:D,0)),"")")
-        worksheet7.write("F33", "=IFERROR(INDEX(Community_Index!C:C,MATCH(C33,Community_Index!D:D,0)),"")")
-        worksheet7.write("F34", "=IFERROR(INDEX(Community_Index!C:C,MATCH(C34,Community_Index!D:D,0)),"")")
-        worksheet7.write("F35", "=IFERROR(INDEX(Community_Index!C:C,MATCH(C35,Community_Index!D:D,0)),"")")
-
-        worksheet7.set_column(9, 9, 15)
-        worksheet7.merge_range("J29:N29", "Bottom 5 Reports - Latest 3 Months",cell_format_Tables)
-        worksheet7.merge_range("J30:L30", "Name")
-        worksheet7.write("J31", '=IF(OR(USER_RANK!M{}="NAME",USER_RANK!M{}="USER",USER_RANK!M{}=""),"",USER_RANK!M{})'.format(BottomReportCell,BottomReportCell,BottomReportCell,BottomReportCell))
-        worksheet7.write("J32", '=IF(OR(USER_RANK!M{}="NAME",USER_RANK!M{}="USER",USER_RANK!M{}=""),"",USER_RANK!M{})'.format(BottomReportCell-1,BottomReportCell-1,BottomReportCell-1,BottomReportCell-1))
-        worksheet7.write("J33", '=IF(OR(USER_RANK!M{}="NAME",USER_RANK!M{}="USER",USER_RANK!M{}=""),"",USER_RANK!M{})'.format(BottomReportCell-2,BottomReportCell-2,BottomReportCell-2,BottomReportCell-2))
-        worksheet7.write("J34", '=IF(OR(USER_RANK!M{}="NAME",USER_RANK!M{}="USER",USER_RANK!M{}=""),"",USER_RANK!M{})'.format(BottomReportCell-3,BottomReportCell-3,BottomReportCell-3,BottomReportCell-3))
-        worksheet7.write("J35", '=IF(OR(USER_RANK!M{}="NAME",USER_RANK!M{}="USER",USER_RANK!M{}=""),"",USER_RANK!M{})'.format(BottomReportCell-4,BottomReportCell-4,BottomReportCell-4,BottomReportCell-4))
-        worksheet7.write("M31", "=IFERROR(INDEX(Community_Index!C:C,MATCH(J31,Community_Index!D:D,0)),"")")
-        worksheet7.write("M32", "=IFERROR(INDEX(Community_Index!C:C,MATCH(J32,Community_Index!D:D,0)),"")")
-        worksheet7.write("M33", "=IFERROR(INDEX(Community_Index!C:C,MATCH(J33,Community_Index!D:D,0)),"")")
-        worksheet7.write("M34", "=IFERROR(INDEX(Community_Index!C:C,MATCH(J34,Community_Index!D:D,0)),"")")
-        worksheet7.write("M35", "=IFERROR(INDEX(Community_Index!C:C,MATCH(J35,Community_Index!D:D,0)),"")")
-
-
-        worksheet7.merge_range("M30:N30", "Community Rank")
-        worksheet7.merge_range("Q29:U29", "Top 5 Community Reports - Latest 3 Months",cell_format_Tables)
-        worksheet7.merge_range("Q30:S30", "Name")
-        worksheet7.merge_range("T30:U30", "Supplier Rank")
-        worksheet7.write("Q31", '=Community_Index!D40')
-        worksheet7.write("Q32", '=Community_Index!D41')
-        worksheet7.write("Q33", '=Community_Index!D42')
-        worksheet7.write("Q34", '=Community_Index!D43')
-        worksheet7.write("Q35", '=Community_Index!D44')
-        worksheet7.write("T31", "=IFERROR(INDEX(USER_RANK!L:L,MATCH('Supplier Summary'!Q31,USER_RANK!M:M,0)),"")")
-        worksheet7.write("T32", "=IFERROR(INDEX(USER_RANK!L:L,MATCH('Supplier Summary'!Q32,USER_RANK!M:M,0)),"")")
-        worksheet7.write("T33", "=IFERROR(INDEX(USER_RANK!L:L,MATCH('Supplier Summary'!Q33,USER_RANK!M:M,0)),"")")
-        worksheet7.write("T34", "=IFERROR(INDEX(USER_RANK!L:L,MATCH('Supplier Summary'!Q34,USER_RANK!M:M,0)),"")")
-        worksheet7.write("T35", "=IFERROR(INDEX(USER_RANK!L:L,MATCH('Supplier Summary'!Q35,USER_RANK!M:M,0)),"")")
-
-        worksheet7.merge_range("C38:G38", "Top 5 Frequent Users - Latest 3 Months",cell_format_Tables)
-        worksheet7.merge_range("C39:E39", "Name")
-        worksheet7.merge_range("F39:G39", "Community Rank")
-        worksheet7.write("C40", '=IF(OR(USER_RANK!E11="TOTAL",USER_RANK!E11="USER",USER_RANK!E11=""),"",USER_RANK!E11)')
-        worksheet7.write("C41", '=IF(OR(USER_RANK!E12="TOTAL",USER_RANK!E12="USER",USER_RANK!E12=""),"",USER_RANK!E12)')
-        worksheet7.write("C42", '=IF(OR(USER_RANK!E13="TOTAL",USER_RANK!E13="USER",USER_RANK!E13=""),"",USER_RANK!E13)')
-        worksheet7.write("C43", '=IF(OR(USER_RANK!E14="TOTAL",USER_RANK!E14="USER",USER_RANK!E14=""),"",USER_RANK!E14)')
-        worksheet7.write("C44", '=IF(OR(USER_RANK!E15="TOTAL",USER_RANK!E15="USER",USER_RANK!E15=""),"",USER_RANK!E15)')
-        worksheet7.write("F40",'=IFERROR(IF(C40="","",INDEX(Community_Users!A:A,MATCH(C40,Community_Users!B:B,0))),"")')
-        worksheet7.write("F41",'=IFERROR(IF(C41="","",INDEX(Community_Users!A:A,MATCH(C41,Community_Users!B:B,0))),"")')
-        worksheet7.write("F42",'=IFERROR(IF(C42="","",INDEX(Community_Users!A:A,MATCH(C42,Community_Users!B:B,0))),"")')
-        worksheet7.write("F43",'=IFERROR(IF(C43="","",INDEX(Community_Users!A:A,MATCH(C43,Community_Users!B:B,0))),"")')
-        worksheet7.write("F44",'=IFERROR(IF(C44="","",INDEX(Community_Users!A:A,MATCH(C44,Community_Users!B:B,0))),"")')
-
-
-        worksheet7.merge_range("J38:N38", "Top 5 Infrequent Users - Latest 3 Months",cell_format_Tables)
-        worksheet7.merge_range("J39:L39", "Name")
-        worksheet7.merge_range("M39:N39", "Community Rank")
-        worksheet7.write("J40", '=IF(OR(USER_RANK!E{}="NAME",USER_RANK!E{}="USER",USER_RANK!E{}="TOTAL",USER_RANK!E{}=""),"",USER_RANK!E{})'.format(BottomUserCell,BottomUserCell,BottomUserCell,BottomUserCell,BottomUserCell))
-        worksheet7.write("J41", '=IF(OR(USER_RANK!E{}="NAME",USER_RANK!E{}="USER",USER_RANK!E{}="TOTAL",USER_RANK!E{}=""),"",USER_RANK!E{})'.format(BottomUserCell-1,BottomUserCell-1,BottomUserCell-1,BottomUserCell-1,BottomUserCell-1))
-        worksheet7.write("J42", '=IF(OR(USER_RANK!E{}="NAME",USER_RANK!E{}="USER",USER_RANK!E{}="TOTAL",USER_RANK!E{}=""),"",USER_RANK!E{})'.format(BottomUserCell-2,BottomUserCell-2,BottomUserCell-2,BottomUserCell-2,BottomUserCell-2))
-        worksheet7.write("J43", '=IF(OR(USER_RANK!E{}="NAME",USER_RANK!E{}="USER",USER_RANK!E{}="TOTAL",USER_RANK!E{}=""),"",USER_RANK!E{})'.format(BottomUserCell-3,BottomUserCell-3,BottomUserCell-3,BottomUserCell-3,BottomUserCell-3))
-        worksheet7.write("J44", '=IF(OR(USER_RANK!E{}="NAME",USER_RANK!E{}="USER",USER_RANK!E{}="TOTAL",USER_RANK!E{}=""),"",USER_RANK!E{})'.format(BottomUserCell-4,BottomUserCell-4,BottomUserCell-4,BottomUserCell-4,BottomUserCell-4))
-        worksheet7.write("M40",'=IFERROR(IF(J40="","",INDEX(Community_Users!A:A,MATCH(J40,Community_Users!B:B,0))),"")')
-        worksheet7.write("M41",'=IFERROR(IF(J41="","",INDEX(Community_Users!A:A,MATCH(J41,Community_Users!B:B,0))),"")')
-        worksheet7.write("M42",'=IFERROR(IF(J42="","",INDEX(Community_Users!A:A,MATCH(J42,Community_Users!B:B,0))),"")')
-        worksheet7.write("M43",'=IFERROR(IF(J43="","",INDEX(Community_Users!A:A,MATCH(J43,Community_Users!B:B,0))),"")')
-        worksheet7.write("M44",'=IFERROR(IF(J44="","",INDEX(Community_Users!A:A,MATCH(J44,Community_Users!B:B,0))),"")')
-
-        worksheet7.merge_range("C5:V6", "{}".format(Supplier), cell_format7)
-        cell_format70 = workbook.add_format()
-        cell_format70.set_font_size(10)
-        cell_format70.set_font_color('#FFFFFF')
-        cell_format70.set_bg_color('000060')
-        cell_format71 = workbook.add_format()
-        cell_format71.set_font_size(10)
-        cell_format71.set_font_color('#FFFFFF')
-        cell_format71.set_bg_color('#404040')
-        worksheet7.write("B2", "SUPPLIER", cell_format70)
-        worksheet7.write("B3", "{}".format(Supplier),cell_format71)
-        worksheet7.write("B5", "Time Frame", cell_format70)
-        worksheet7.write("B6", "L3 Months", cell_format71)
-        worksheet7.set_column(0, 0, 0.5)
-        worksheet7.set_column(1, 1, 15)
-
-        chart1 = workbook.add_chart({'type': 'column'})
-        chart2 = workbook.add_chart({'type': 'line'})
-        chart1.set_title({'name': '{} INDEXED TO SUPPLIER COMMUNITY'.format(Supplier)})
-        chart1.add_series({'name': "{}".format(Supplier.upper()),
-                           'categories': '=Community_Data!$G$2:$H${}'.format(i + 1),
-                           'values': '=Community_Data!$J$2:$J${}'.format(i + 1),
-                           'data_labels': {'value': True, 'font': {'rotation': 0}, 'position': 'center'}, })
-        chart2.add_series({'name': "INDEX",
-                           'categories': '=Community_Data!$G$2:$H${}'.format(i + 1),
-                           'values': '=Community_Data!$M$2:$M${}'.format(i + 1),
-                           'y2_axis': True,
-                           'data_labels': {'value': True, 'font': {'rotation': 0}, 'position': 'top', }})
-        chart1.set_style(2)
-        chart1.set_x_axis({'name': 'Time (Month/Year)', 'num_font': {'size': 10}})
-        chart1.set_y_axis({'name': 'Reports Run by {}'.format(Supplier)})
-        chart2.set_y2_axis({'name': 'Index of {} to Community'.format(Supplier)})
-        chart1.set_size({'width': 1350, 'height': 300})
-        chart1.set_legend({'position': 'bottom'})
-        chart1.combine(chart2)
-        worksheet7.hide_gridlines(2)
-        worksheet7.insert_chart('C10', chart1)
-        worksheet7.freeze_panes(9,0)
-
-        ###Average Report per user
-        chart1 = workbook.add_chart({'type': 'line'})
-        chart1.set_title({'name': '{} VS SUPPLIER COMMUNITY (Average Report Per User)'.format(Supplier)})
-        chart1.add_series({'name': "{}".format(Supplier.upper()),
-                           'categories': '=Community_Data!$G$2:$H${}'.format(i + 1),
-                           'values': '=Community_Data!$O$2:$O${}'.format(i + 1),
-                           'data_labels': {'value': True, 'font': {'rotation': 0}, 'position': 'center'}, })
-        chart1.add_series({'name': "COMMUNITY",
-                           'categories': '=Community_Data!$G$2:$H${}'.format(i + 1),
-                           'values': '=Community_Data!$N$2:$N${}'.format(i + 1),
-                           'data_labels': {'value': True, 'font': {'rotation': 0}, 'position': 'center', }})
-        chart1.set_style(2)
-        chart1.set_x_axis({'name': 'Time (Month/Year)', 'num_font': {'size': 10}})
-        chart1.set_y_axis({'name': 'Average reports per ID'})
-        chart1.set_size({'width': 1350, 'height': 300})
-        chart1.set_legend({'position': 'bottom'})
-        worksheet7.hide_gridlines(2)
-        worksheet7.insert_chart('C47', chart1)
-        #######################
-        chart1 = workbook.add_chart({'type': 'line'})
-        chart1.set_title({'name': '{} VS SUPPLIER COMMUNITY (Average Report Per User)'.format(Supplier)})
-        chart1.add_series({'name': "{}".format(Supplier.upper()),
-                                'categories': '=Community_Data!$G$2:$H${}'.format(i+1),
-                                'values': '=Community_Data!$O$2:$O${}'.format(i+1),
-                                'data_labels': {'value': True, 'font': {'rotation': 0}, 'position': 'bottom'}, })
-        chart1.add_series({'name': "COMMUNITY",
-                                'categories': '=Community_Data!$G$2:$H${}'.format(i+1),
-                                'values': '=Community_Data!$N$2:$N${}'.format(i+1),
-                                'data_labels': {'value': True, 'font': {'rotation': 0}, 'position': 'top', }})
-        chart1.set_style(2)
-        chart1.set_x_axis({'name' : 'Time (Month/Year)','num_font': {'size': 10}})
-        chart1.set_y_axis({'name': 'Average reports per ID'})
-        chart1.set_size({'width': 1350, 'height': 300})
-        chart1.set_legend({'position': 'bottom'})
-        worksheet5.hide_gridlines(2)
-        worksheet5.insert_chart('B22', chart1)
-        worksheet5.hide()
-    #############################################################
-        c.execute(Query)
-        mysel = c.execute(Query)
+        myNEWsel  = c.execute(dyno_VP_QUERY)
         names = list(map(lambda x: x[0], mysel.description))
+        col2 = col
+        for i in names:
+            worksheet6.write(81, col2, i)
+            col2 += 1
+        for i, row in enumerate(myNEWsel):
+            col_num = col
+            i += 82
+            for j, value in enumerate(row):
+                worksheet6.write(i, col_num, row[j])
+                col_num += 1
+        col += 4
+
+    worksheet6.conditional_format('D83:D100', {'type': 'data_bar'})
+    worksheet6.conditional_format('H83:H100', {'type': 'data_bar'})
+    worksheet6.conditional_format('L83:L100', {'type': 'data_bar'})
+    worksheet6.conditional_format('P83:P100', {'type': 'data_bar'})
+    worksheet6.conditional_format('T83:T100', {'type': 'data_bar'})
+
+    #Senior Level Data
+    c.execute(SLVQUERY)
+    mysel = c.execute(SLVQUERY)
+    names = list(map(lambda x: x[0], mysel.description))
+    col = 0
+    for i in names:
+        worksheet7.write(0, col, i)
+        col += 1
+    for i, row in enumerate(mysel):
         col = 0
-        for i in names:
-            worksheet.write(0, col,i)
-            col +=1
-        for i, row in enumerate(mysel):
-            col = 0
-            i += 1
-            for j, value in enumerate(row):
-                worksheet.write(i, col, row[j])
-                col += 1
-        worksheet.hide()
-
-        #############################################################
-        #REPORT SUMMARY
-        c.execute(Query2)
-        mysel = c.execute(Query2)
-        names = list(map(lambda x: x[0], mysel.description))
-        col = 1
-        rownum = 1
-        cell_format = workbook.add_format()
-        cell_format.set_font_size(30)
-        cell_format.set_align('center')
-        cell_format.set_align('vcenter')
-        cell_format.set_font_color('#FFFFFF')
-        cell_format.set_bg_color('009900')
-        worksheet2.merge_range("A1:V4", "REPORT SUMMARY FOR {}".format(Supplier),cell_format)
-        for i in names:
-            worksheet2.write(5, col, i)
+        i += 1
+        for j, value in enumerate(row):
+            worksheet7.write(i, col, row[j])
             col += 1
-        for i, row in enumerate(mysel):
-            col = 1
-            i += 6
-            rownum += 1
-            for j, value in enumerate(row):
-                worksheet2.write(i, col, row[j])
-                col += 1
-        cell_format2 = workbook.add_format()
-        cell_format2.set_align('center')
-
-        for row_num in range(5,i+1):
-            cell = xl_rowcol_to_cell(row_num-1, 0)
-            formula = '=If({}="RANK",1,{}+1)'.format(cell, cell)
-            worksheet2.write(row_num, 0, formula,cell_format2)
-            worksheet2.write(5, 0, "RANK")
-
-        worksheet2.write(i+1, 1, "TOTAL")
-        formula = '=" " & Sum(C7:C{})'.format(i+1)
-        formula2 = '=" " & Sum(D7:D{})'.format(i+1)
-        formula3 = '=" " & Sum(E7:E{})'.format(i+1)
-        formula4 = '=" " & Sum(F7:F{})'.format(i+1)
-
-        worksheet2.write(i+1, 2, formula, cell_format2)
-        worksheet2.write(i+1, 3, formula2, cell_format2)
-        worksheet2.write(i+1, 4, formula3, cell_format2)
-        worksheet2.write(i+1, 5, formula4, cell_format2)
-
-        ###Chart Overall
-        chart1 = workbook.add_chart({'type': 'column'})
-        chart1.set_title({'name': 'OVERALL REPORTS RUN'})
-        chart1.add_series({'name': 'Latest 3 Months ({}, {}, {})'.format(calendar.month_abbr[Month1].upper(),calendar.month_abbr[Month2].upper(),calendar.month_abbr[Month3].upper()),
-                               'categories': '=Report_Sum!$B$7:$B${}'.format(rownum+5),
-                               'values': '=Report_Sum!$F$7:$F${}'.format(rownum+5),
-                               'data_labels': {'value': True, 'font': {'rotation': -45}},})
-        chart1.set_style(8)
-        chart1.set_x_axis({'name': 'Report Names','num_font':{'size': 8}})
-        chart1.set_y_axis({'name': 'Number of Reports Run'})
-        chart1.set_size({'width': 975, 'height': 600})
-        chart1.set_legend({'position': 'bottom'})
-        worksheet2.insert_chart('H26', chart1)
-        ###CHART 2 - top 5
-        if rownum < 6:
-            chart1 = workbook.add_chart({'type': 'column'})
-            chart1.set_title({'name': 'TOP 5 REPORTS'})
-            chart1.add_series({'name': "{}".format(calendar.month_abbr[Month1].upper()),
-                               'categories': '=Report_Sum!$B$7:$B${}'.format(rownum+5),
-                               'values': '=Report_Sum!$C$7:$C${}'.format(rownum+5),
-                               'data_labels': {'value': True , 'font': {'rotation': -45}},})
-            chart1.add_series({'name': "{}".format(calendar.month_abbr[Month2].upper()),
-                                'categories': '=Report_Sum!$B$7:$B${}'.format(rownum+5),
-                               'values': '=Report_Sum!$D$7:$D${}'.format(rownum+5),
-                               'data_labels': {'value': True ,'font': {'rotation': -45}},})
-            chart1.add_series({'name': "{}".format(calendar.month_abbr[Month3].upper()),
-                                'categories': '=Report_Sum!$B$7:$B${}'.format(rownum+5),
-                               'values': '=Report_Sum!$E$7:$E${}'.format(rownum+5),
-                                   'data_labels': {'value': True, 'font': {'rotation': -45}}, })
-        else:
-            chart1 = workbook.add_chart({'type': 'column'})
-            chart1.set_title({'name': 'TOP 5 REPORTS'})
-            chart1.add_series({'name': "{}".format(calendar.month_abbr[Month1].upper()),
-                               'categories': '=Report_Sum!$B$7:$B$11',
-                               'values': '=Report_Sum!$C$7:$C$11',
-                               'data_labels': {'value': True, 'font': {'rotation': -45}}, })
-            chart1.add_series({'name': "{}".format(calendar.month_abbr[Month2].upper()),
-                               'categories': '=Report_Sum!$B$7:$B$11',
-                               'values': '=Report_Sum!$D$7:$D$11',
-                               'data_labels': {'value': True, 'font': {'rotation': -45}}, })
-            chart1.add_series({'name': "{}".format(calendar.month_abbr[Month3].upper()),
-                               'categories': '=Report_Sum!$B$7:$B$11',
-                               'values': '=Report_Sum!$E$7:$E$11',
-                               'data_labels': {'value': True, 'font': {'rotation': -45}}, })
-
-        chart1.set_style(2)
-        chart1.set_x_axis({'num_font': {'size': 6}})
-        chart1.set_y_axis({'name': 'Number of Reports Run'})
-        chart1.set_size({'width': 450, 'height': 350})
-        chart1.set_legend({'position': 'bottom'})
-        worksheet2.insert_chart('H6', chart1)
-        ###Chart3 - bottom 5
-        if rownum < 6:
-            chart1 = workbook.add_chart({'type': 'column'})
-            chart1.set_title({'name': 'BOTTOM 5 REPORTS'})
-            chart1.add_series({'name': "{}".format(calendar.month_abbr[Month1].upper()),
-                               'categories': '=Report_Sum!$B$7:$B${}'.format(rownum + 5),
-                               'values': '=Report_Sum!$C$7:$C${}'.format(rownum + 5),
-                               'data_labels': {'value': True, 'font': {'rotation': -45}}, })
-            chart1.add_series({'name': "{}".format(calendar.month_abbr[Month2].upper()),
-                               'categories': '=Report_Sum!$B$7:$B${}'.format(rownum + 5),
-                               'values': '=Report_Sum!$D$7:$D${}'.format(rownum + 5),
-                               'data_labels': {'value': True, 'font': {'rotation': -45}}, })
-            chart1.add_series({'name': "{}".format(calendar.month_abbr[Month3].upper()),
-                               'categories': '=Report_Sum!$B$7:$B${}'.format(rownum + 5),
-                               'values': '=Report_Sum!$E$7:$E${}'.format(rownum + 5),
-                               'data_labels': {'value': True, 'font': {'rotation': -45}}, })
-        else:
-            chart1 = workbook.add_chart({'type': 'column'})
-            chart1.set_title({'name': 'BOTTOM 5 REPORTS'})
-            chart1.add_series({'name': "{}".format(calendar.month_abbr[Month1].upper()),
-                               'categories': '=Report_Sum!$B${}:$B${}'.format(rownum + 1, rownum + 5),
-                               'values': '=Report_Sum!$C${}:$C${}'.format(rownum + 1, rownum + 5),
-                               'data_labels': {'value': True, 'font': {'rotation': -45}}, })
-            chart1.add_series({'name': "{}".format(calendar.month_abbr[Month2].upper()),
-                               'categories': '=Report_Sum!$B${}:$B${}'.format(rownum + 1, rownum + 5),
-                               'values': '=Report_Sum!$D${}:$D${}'.format(rownum + 1, rownum + 5),
-                               'data_labels': {'value': True, 'font': {'rotation': -45}}, })
-            chart1.add_series({'name': "{}".format(calendar.month_abbr[Month3].upper()),
-                               'categories': '=Report_Sum!$B${}:$B${}'.format(rownum + 1, rownum + 5),
-                               'values': '=Report_Sum!$E${}:$E${}'.format(rownum + 1, rownum + 5),
-                               'data_labels': {'value': True, 'font': {'rotation': -45}}, })
-        chart1.set_style(2)
-        chart1.set_x_axis({'num_font': {'size': 6}})
-        chart1.set_y_axis({'name': 'Number of Reports Run'})
-        chart1.set_size({'width': 450, 'height': 350})
-        chart1.set_legend({'position': 'bottom'})
-        worksheet2.insert_chart('P6', chart1)
-
-        border_format = workbook.add_format({'border': 1,'align': 'left','font_size': 10})
-        worksheet2.conditional_format('A5:F{}'.format(rownum+10), {'type': 'no_blanks', 'format': border_format})
-        worksheet2.set_column(2, 4, 5)
-        worksheet2.set_column(1, 1, 35)
-        worksheet2.conditional_format('C1:E1000', {'type': '3_color_scale'})
-        worksheet2.conditional_format('F1:F1000', {'type': 'data_bar'})
-        worksheet2.set_column(0, 0, 5)
-        worksheet2.set_column(5, 5, 6.5)
-        worksheet2.set_column(6, 6, 2)
-        worksheet2.hide_gridlines(2)
-        worksheet2.hide()
-        #############################################################
-        #User Sum
-        c.execute(Query3)
-        mysel = c.execute(Query3)
-        names = list(map(lambda x: x[0], mysel.description))
-        col = 1
-        rownum = 1
-        cell_format = workbook.add_format()
-        cell_format.set_font_size(30)
-        cell_format.set_align('center')
-        cell_format.set_align('vcenter')
-        cell_format.set_font_color('#FFFFFF')
-        cell_format.set_bg_color('009900')
-        worksheet3.merge_range("A1:X4", "USER SUMMARY FOR {}".format(Supplier),cell_format)
-        for i in names:
-            worksheet3.write(5, col, i)
+    worksheet7.hide()
+    ######
+    #SLV INDEX
+    mysel = c.execute(SLV_INDEX_QUERY)
+    names = list(map(lambda x: x[0], mysel.description))
+    col = 0
+    for i in names:
+        worksheet8.write(0, col,i)
+        col +=1
+    for i, row in enumerate(mysel):
+        col = 0
+        i += 1
+        for j, value in enumerate(row):
+            worksheet8.write(i, col, row[j])
             col += 1
-        for i, row in enumerate(mysel):
-            col = 1
-            i += 6
-            rownum += 1
-            for j, value in enumerate(row):
-                worksheet3.write(i, col, row[j])
-                col += 1
 
-        cell_format3 = workbook.add_format()
-        cell_format3.set_align('center')
-        for row_num in range(5, i + 1):
-            cell = xl_rowcol_to_cell(row_num - 1, 0)
-            formula = '=If({}="RANK",1,{}+1)'.format(cell, cell)
-            worksheet3.write(row_num, 0, formula, cell_format2)
-            worksheet3.write(5, 0, "RANK")
-
-        worksheet3.write(i + 1, 1, "TOTAL")
-        formula = '=" " & Sum(C7:C{})'.format(i + 1)
-        formula2 = '=" " & Sum(D7:D{})'.format(i + 1)
-        formula3 = '=" " & Sum(E7:E{})'.format(i + 1)
-        formula4 = '=" " & Sum(F7:F{})'.format(i + 1)
-
-        worksheet3.write(i + 1, 2, formula, cell_format2)
-        worksheet3.write(i + 1, 3, formula2, cell_format2)
-        worksheet3.write(i + 1, 4, formula3, cell_format2)
-        worksheet3.write(i + 1, 5, formula4, cell_format2)
-        ###Chart Overall
-        chart1 = workbook.add_chart({'type': 'column'})
-        chart1.add_series({'name': "Total",
-                           'categories': '=User_Sum!$B$7:$B${}'.format(rownum+5),
-                           'values': '=User_Sum!$F$7:$F${}'.format(rownum+5),
-                           'data_labels': {'value': True , 'font': {'rotation': -45}},})
-        chart1.set_title({'name': 'TOTAL USER REPORTS RUN'})
-        chart1.set_legend({'position': 'bottom'})
-        chart1.set_x_axis({'name': 'Users'})
-        chart1.set_x_axis({'num_font': {'rotation': -45}})
-        chart1.set_y_axis({'name': 'Number of Reports Run'})
-        chart1.set_size({'width': 1095, 'height': 550})
-        worksheet3.insert_chart('H22', chart1)
-        ###CHART 2 - top 5
-        if rownum < 6:
-            chart1 = workbook.add_chart({'type': 'column'})
-            chart1.set_title({'name': 'FREQUENT 5 USERS'})
-            chart1.add_series({'name': "{}".format(calendar.month_abbr[Month1].upper()),
-                               'categories': '=User_Sum!$B$7:$B${}'.format(rownum+5),
-                               'values': '=User_Sum!$C$7:$C${}'.format(rownum+5),
-                               'data_labels': {'value': True , 'font': {'rotation': -45}},})
-            chart1.add_series({'name': "{}".format(calendar.month_abbr[Month2].upper()),
-                                'categories': '=User_Sum!$B$7:$B${}'.format(rownum+5),
-                               'values': '=User_Sum!$D$7:$D${}'.format(rownum+5),
-                               'data_labels': {'value': True ,'font': {'rotation': -45}},})
-            chart1.add_series({'name': "{}".format(calendar.month_abbr[Month3].upper()),
-                                'categories': '=User_Sum!$B$7:$B${}'.format(rownum+5),
-                               'values': '=User_Sum!$E$7:$E${}'.format(rownum+5),
-                                   'data_labels': {'value': True, 'font': {'rotation': -45}}, })
-        else:
-            chart1 = workbook.add_chart({'type': 'column'})
-            chart1.set_title({'name': 'FREQUENT 5 USERS'})
-            chart1.add_series({'name': "{}".format(calendar.month_abbr[Month1].upper()),
-                               'categories': '=User_Sum!$B$7:$B$11',
-                               'values': '=User_Sum!$C$7:$C$11',
-                               'data_labels': {'value': True, 'font': {'rotation': -45}}, })
-            chart1.add_series({'name': "{}".format(calendar.month_abbr[Month2].upper()),
-                               'categories': '=User_Sum!$B$7:$B$11',
-                               'values': '=User_Sum!$D$7:$D$11',
-                               'data_labels': {'value': True, 'font': {'rotation': -45}}, })
-            chart1.add_series({'name': "{}".format(calendar.month_abbr[Month3].upper()),
-                               'categories': '=User_Sum!$B$7:$B$11',
-                               'values': '=User_Sum!$E$7:$E$11',
-                               'data_labels': {'value': True, 'font': {'rotation': -45}}, })
-
-        chart1.set_style(2)
-        chart1.set_x_axis({'num_font': {'size': 6}})
-        chart1.set_y_axis({'name': 'Number of Reports Run'})
-        chart1.set_size({'width': 520, 'height': 300})
-        chart1.set_legend({'position': 'bottom'})
-        worksheet3.insert_chart('H6', chart1)
-        ###Chart3 - bottom 5
-        if rownum < 6:
-            chart1 = workbook.add_chart({'type': 'column'})
-            chart1.set_title({'name': 'INFREQUENT 5 USERS'})
-            chart1.add_series({'name': "{}".format(calendar.month_abbr[Month1].upper()),
-                               'categories': '=User_Sum!$B$7:$B${}'.format(rownum+5),
-                               'values': '=User_Sum!$C$7:$C${}'.format(rownum+5),
-                               'data_labels': {'value': True, 'font': {'rotation': -45}}, })
-            chart1.add_series({'name': "{}".format(calendar.month_abbr[Month2].upper()),
-                               'categories': '=User_Sum!$B$7:$B${}'.format(rownum+5),
-                               'values': '=User_Sum!$D$7:$D${}'.format(rownum+5),
-                               'data_labels': {'value': True, 'font': {'rotation': -45}}, })
-            chart1.add_series({'name': "{}".format(calendar.month_abbr[Month3].upper()),
-                               'categories': '=User_Sum!$B$7:$B${}'.format(rownum+5),
-                               'values': '=User_Sum!$E$7:$E${}'.format(rownum+5),
-                               'data_labels': {'value': True, 'font': {'rotation': -45}}, })
-        else:
-            chart1 = workbook.add_chart({'type': 'column'})
-            chart1.set_title({'name': 'INFREQUENT 5 USERS'})
-            chart1.add_series({'name': "{}".format(calendar.month_abbr[Month1].upper()),
-                               'categories': '=User_Sum!$B${}:$B${}'.format(rownum+1,rownum+5),
-                               'values': '=User_Sum!$C${}:$C${}'.format(rownum+1, rownum+5),
-                               'data_labels': {'value': True , 'font': {'rotation': -45}},})
-            chart1.add_series({'name': "{}".format(calendar.month_abbr[Month2].upper()),
-                                'categories': '=User_Sum!$B${}:$B${}'.format(rownum+1,rownum+5),
-                               'values': '=User_Sum!$D${}:$D${}'.format(rownum+1,rownum+5),
-                               'data_labels': {'value': True ,'font': {'rotation': -45}},})
-            chart1.add_series({'name': "{}".format(calendar.month_abbr[Month3].upper()),
-                                'categories': '=User_Sum!$B${}:$B${}'.format(rownum+1,rownum+5),
-                               'values': '=User_Sum!$E${}:$E${}'.format(rownum+1,rownum+5),
-                               'data_labels': {'value': True,'font': {'rotation': -45}},})
-        chart1.set_style(2)
-        chart1.set_x_axis({'num_font': {'size': 6}})
-        chart1.set_y_axis({'name': 'Number of Reports Run'})
-        chart1.set_size({'width': 520, 'height': 300})
-        chart1.set_legend({'position': 'bottom'})
-        worksheet3.insert_chart('Q6', chart1)
-
-        border_format = workbook.add_format({'border': 1,'align': 'left','font_size': 10})
-        worksheet3.conditional_format('A5:F{}'.format(rownum+10), {'type': 'no_blanks', 'format': border_format})
-        worksheet3.set_column(2, 4, 3.89)
-        worksheet3.set_column(5, 5, 6)
-        worksheet3.conditional_format('C1:E1000', {'type': '3_color_scale'})
-        worksheet3.conditional_format('F1:F1000', {'type': 'data_bar'})
-        worksheet3.set_column(0, 0, 5)
-        worksheet3.set_column(1, 1, 20)
-        worksheet3.set_column(6, 6, 2)
-        worksheet3.hide_gridlines(2)
-        worksheet3.hide()
-        #Worksheet8
-        #Community Users
-        c.execute(CommunityUsers)
-        mysel = c.execute(CommunityUsers)
-        names = list(map(lambda x: x[0], mysel.description))
-        col = 1
-        rownum = 2
-        for i in names:
-            worksheet8.write(2, col, i)
+    myothersel = c.execute(EVP_INDEX_QUERY)
+    names2 = list(map(lambda x: x[0], myothersel.description))
+    for i in names2:
+        worksheet8.write(0, col,i)
+        col +=1
+    for i, row in enumerate(myothersel):
+        col = 9
+        i += 1
+        for j, value in enumerate(row):
+            worksheet8.write(i, col, row[j])
             col += 1
-        for i, row in enumerate(mysel):
-            col = 1
-            i += 1
-            rownum += 1
-            for j, value in enumerate(row):
+        rowcount = i
+        PieLength_EVP = i
+
+    myothersel2 = c.execute(VP_QUERY)
+    names3 = list(map(lambda x: x[0], myothersel2.description))
+    col = 22
+    for i in names3:
+            worksheet8.write(0, col, i)
+            col += 1
+    for i, row in enumerate(myothersel2):
+        col = 22
+        i += 1
+        for j, value in enumerate(row):
+            worksheet8.write(i, col, row[j])
+            col += 1
+
+    myothersel3 = c.execute(Region_QUERY)
+    names4 = list(map(lambda x: x[0], myothersel3.description))
+    col = 26
+    PieLength = 0
+    for i in names4:
+        worksheet8.write(0, col, i)
+        col += 1
+    for i, row in enumerate(myothersel3):
+        col = 26
+        i += 1
+        PieLength = i
+        for j, value in enumerate(row):
+            worksheet8.write(i, col, row[j])
+            col += 1
+
+    myothersel4 = c.execute(Month_QUERY)
+    names5 = list(map(lambda x: x[0], myothersel4.description))
+    col = 29
+    PieLength_Month = 0
+    for i in names5:
+        worksheet8.write(0, col, i)
+        col += 1
+    for i, row in enumerate(myothersel4):
+        col = 29
+        i += 1
+        PieLength_Month = i
+        for j, value in enumerate(row):
+            if j == 0:
+                Month_name = str((calendar.month_abbr[row[j]].upper()))
+                worksheet8.write(i, col, Month_name)
+            else:
                 worksheet8.write(i, col, row[j])
-                col += 1
-            for row_num in range(0, i + 1):
-                cell = xl_rowcol_to_cell(row_num - 1, 0)
-                formula = '=If({}="RANK",1,{}+1)'.format(cell, cell)
-                worksheet8.write(row_num, 0, formula)
-                worksheet8.write(0, 0, "RANK")
-        workbook.close()
-        ##
-        o_workbook = openpyxl.load_workbook(filename=workbookpath)
-        o_ws = o_workbook["Community_Users"]
-        o_ws.sheet_state = "veryHidden"
-        o_ws2 = o_workbook["HISTORY"]
-        o_ws2.sheet_state = "veryHidden"
-        o_ws3 = o_workbook["Community_Index"]
-        o_ws3.sheet_state = "veryHidden"
-        o_ws4 = o_workbook["Community_Data"]
-        o_ws4.sheet_state = "veryHidden"
-        o_ws5 = o_workbook["User_Sum"]
-        o_ws5.sheet_state = "veryHidden"
-        o_ws6 = o_workbook["Report_Sum"]
-        o_ws6.sheet_state = "veryHidden"
-        o_workbook.save(workbookpath)
-        o_workbook.close(workbookpath)
+            col += 1
 
-        ##########################################################################################################################
-Company_Name = c.execute('select * from Company_Table where Company_Name in '
-                         '("COCA COLA","CHURCH DWIGHT")')
-# Company_Name = c.execute('select * from Company_Table '
-#                          'WHERE COMPANY_NAME NOT IN ("SOBEYS","LDAP") '
-#                          'ORDER BY Company_Name ASC ')
+    myothersel5 = c.execute(Dept_QUERY)
+    names6 = list(map(lambda x: x[0], myothersel5.description))
+    col = 32
+    PieLength_Dept = 0
+    for i in names6:
+        worksheet8.write(0, col, i)
+        col += 1
+    for i, row in enumerate(myothersel4):
+        col = 32
+        i += 1
+        PieLength_Dept = i
+        for j, value in enumerate(row):
+            worksheet8.write(i, col, row[j])
+            col += 1
+
+
+        # Formula
+    for row_num in range(1, rowcount + 2):
+        R_SOB_CELL = xl_rowcol_to_cell(1, 4)
+        I_SOB_CELL = xl_rowcol_to_cell(1, 8)
+        R_cell = xl_rowcol_to_cell(row_num, 13)
+        I_cell = xl_rowcol_to_cell(row_num, 16)
+        Index_Cell = xl_rowcol_to_cell(row_num, 17)
+        Index_Cell2 = xl_rowcol_to_cell(row_num, 18)
+        A_R_CELL = xl_rowcol_to_cell(row_num, 13)
+        A_I_CELL = xl_rowcol_to_cell(row_num, 16)
+        formula = '=({}/{})'.format(R_cell,R_SOB_CELL)
+        formula2 = '=({}/{})'.format(I_cell,I_SOB_CELL)
+        formula3 = '=Round(({}/{})*100,0)'.format(Index_Cell, Index_Cell2)
+        formula4 = '=Round(({}/{}),0)'.format(A_R_CELL, A_I_CELL)
+        worksheet8.write(row_num, 17, formula)
+        worksheet8.write(0, 17, "REPORT INDEX")
+        worksheet8.write(row_num, 18, formula2)
+        worksheet8.write(0, 18, "ID INDEX")
+        worksheet8.write(row_num, 19, formula3)
+        worksheet8.write(0, 19, "INDEX TO EVP")
+        worksheet8.write(row_num, 20, formula4)
+        worksheet8.write(0, 20, "AVERAGE REPORT PER USER")
+    worksheet8.write(row_num, 9, "TOTAL")
+    worksheet8.write(row_num, 10, '=SUM(K2:K{})'.format(row_num))
+    worksheet8.write(row_num, 11, '=SUM(L2:L{})'.format(row_num))
+    worksheet8.write(row_num, 12, '=SUM(M2:M{})'.format(row_num))
+    worksheet8.write(row_num, 13, '=SUM(N2:N{})'.format(row_num))
+    worksheet8.write(row_num, 14, '=SUM(O2:O{})'.format(row_num))
+    worksheet8.write(row_num, 15, '=SUM(P2:P{})'.format(row_num))
+    worksheet8.write(row_num, 16, '=SUM(Q2:Q{})'.format(row_num))
+    worksheet8.hide()
+    #EVP Summary
+
+    cell_format = workbook.add_format()
+    cell_format.set_font_size(30)
+    cell_format.set_align('center')
+    cell_format.set_align('vcenter')
+    cell_format.set_font_color('#FFFFFF')
+    cell_format.set_bg_color('009900')
+    worksheet6.merge_range("A1:W3", "{} COMPARED TO SUPPLIER COMMUNITY".format(Supplier),cell_format)
+
+    chart1 = workbook.add_chart({'type': 'column'})
+    chart1.set_title({'name': 'BUSINESS UNIT TREND' + "\n" + '(REPORTS RUN LATEST 3 MONTHS)'})
+    chart1.add_series({'name': "{}".format(calendar.month_abbr[Month1].upper()),
+                       'categories': '=SLV_INDEX_Data!$J$2:$J${}'.format(rowcount+2),
+                       'values': '=SLV_INDEX_Data!$K$2:$K${}'.format(rowcount+2),
+                       'data_labels': {'value': True, 'font': {'rotation': -45}}, })
+    chart1.add_series({'name': "{}".format(calendar.month_abbr[Month2].upper()),
+                       'categories': '=SLV_INDEX_Data!$J$7:$J${}'.format(rowcount+2),
+                       'values': '=SLV_INDEX_Data!$L$2:$L${}'.format(rowcount +2),
+                       'data_labels': {'value': True, 'font': {'rotation': -45}}, })
+    chart1.add_series({'name': "{}".format(calendar.month_abbr[Month3].upper()),
+                       'categories': '=SLV_INDEX_Data!$J$7:$J${}'.format(rowcount+2),
+                       'values': '=SLV_INDEX_Data!$M$2:$M${}'.format(rowcount+2),
+                       'data_labels': {'value': True, 'font': {'rotation': -45}}, })
+    chart1.set_style(18)
+    chart1.set_x_axis({'num_font': {'size': 12}})
+    chart1.set_y_axis({'name': 'Number of Reports Run'})
+    chart1.set_size({'width': 1350, 'height': 300})
+    chart1.set_legend({'position': 'bottom'})
+    worksheet6.insert_chart('B30', chart1)
+    #iNDEX
+
+    chart1 = workbook.add_chart({'type': 'column'})
+    chart2 = workbook.add_chart({'type': 'line'})
+    chart1.set_title({'name': 'BUSINESS UNIT COMPARISON' + "\n" + '(AVERAGE RERORTS RUN VS REPORTS RUN IN LATEST 3 MONTHS)'})
+    chart1.add_series({'name': "{}".format(Supplier.upper()),
+                            'categories': '=SLV_INDEX_Data!$J$2:$J${}'.format(rowcount+2),
+                            'values': '=SLV_INDEX_Data!$N$2:$N${}'.format(rowcount+2),
+                            'data_labels': {'value': True, 'font': {'rotation': 0}, 'position': 'center'}, })
+    chart2.add_series({'name': "AVERAGE REPORTS RUN",
+                            'categories': '=SLV_INDEX_Data!$J$2:$J${}'.format(rowcount+2),
+                            'values': '=SLV_INDEX_Data!$U$2:$U${}'.format(rowcount+2),
+                            'y2_axis': True,
+                            'data_labels': {'value': True, 'font': {'rotation': 0}, 'position': 'top', }})
+    chart1.set_style(2)
+    chart1.set_x_axis({'name' : 'EVP','num_font': {'size': 12}})
+    chart1.set_y_axis({'name': 'Reports Run by {}'.format(Supplier)})
+    chart2.set_y2_axis({'name': 'Index of {} to Community'.format(Supplier)})
+    chart1.set_size({'width': 1350, 'height': 300})
+    chart1.set_legend({'position': 'bottom'})
+    chart1.combine(chart2)
+    worksheet6.set_column(0,1,3)
+    worksheet6.set_column(2, 2, 20)
+    worksheet6.set_column(4, 5, 3)
+    worksheet6.set_column(6, 6, 20)
+    worksheet6.set_column(9, 9, 6.5)
+    worksheet6.set_column(10, 10, 20)
+    worksheet6.set_column(12, 13, 3)
+    worksheet6.set_column(14, 14, 20)
+    worksheet6.set_column(16, 17, 3)
+    worksheet6.set_column(18, 18, 20)
+    worksheet6.hide_gridlines(2)
+    worksheet6.insert_chart('B46', chart1)
+    # #########################################################################
+    #Community most pop report
+    c.execute(CommunityReports)
+    ReportQuery = c.execute(CommunityReports)
+    names = list(map(lambda x: x[0], ReportQuery.description))
+    ###############
+    col = 3
+    rownum0 = 29
+    for i in names:
+        worksheet5.write(38, col, i)
+        col += 1
+    for i, row in enumerate(ReportQuery):
+        col = 3
+        i += 39
+        rownum0 += 1
+        for j, value in enumerate(row):
+            worksheet5.write(i, col, row[j])
+            col += 1
+
+    cell_format2 = workbook.add_format()
+    cell_format2.set_align('center')
+    for row_num in range(39, i + 1):
+        cell = xl_rowcol_to_cell(row_num - 1, 2)
+        formula = '=If({}="RANK",1,{}+1)'.format(cell, cell)
+        worksheet5.write(row_num, 2, formula, cell_format2)
+        worksheet5.write(38, 2, "RANK")
+
+    cell_format0 = workbook.add_format()
+    cell_format0.set_font_size(12)
+    cell_format0.set_align('center')
+    cell_format0.set_align('vcenter')
+    cell_format0.set_font_color('#FFFFFF')
+    cell_format0.set_bg_color('009900')
+    worksheet5.merge_range("C38:H38", "TOP COMMUNITY REPORTS",cell_format0)
+    worksheet5.set_column('B:B', None, None, {'hidden': 1})
+
+    worksheet5.write(i + 1, 3, "TOTAL")
+    formula = '=" " & Sum(E7:E{})'.format(i + 1)
+    formula2 = '=" " & Sum(F7:F{})'.format(i + 1)
+    formula3 = '=" " & Sum(G7:G{})'.format(i + 1)
+    formula4 = '=" " & Sum(H7:H{})'.format(i + 1)
+    worksheet5.write(i+1, 4, formula, cell_format2)
+    worksheet5.write(i+1, 5, formula2, cell_format2)
+    worksheet5.write(i+1, 6, formula3, cell_format2)
+    worksheet5.write(i+1, 7, formula4, cell_format2)
+    border_format = workbook.add_format({'border': 1,'align': 'left','font_size': 10})
+    worksheet5.conditional_format('C39:H{}'.format(rownum0+1000), {'type': 'no_blanks', 'format': border_format})
+    worksheet5.conditional_format('E1:G1000', {'type': '3_color_scale'})
+    worksheet5.conditional_format('H1:H1000', {'type': 'data_bar'})
+    worksheet5.set_column(0, 0, 2)
+    worksheet5.set_column(2, 2, 5)
+    worksheet5.set_column(3,35, 20)
+    worksheet5.set_column(4, 6, 5)
+    worksheet5.set_column(7, 7, 8)
+    worksheet5.set_column(8, 8, 5)
+    ###CHART 2 - top 5
+    if rownum0 < 6:
+        chart1 = workbook.add_chart({'type': 'column'})
+        chart1.set_title({'name': 'TOP 10 MOST POPULAR REPORTS FOR SUPPLIER COMMUNITY'})
+        chart1.add_series({'name': "{}".format(calendar.month_abbr[Month1].upper()),
+                           'categories': '=Community_Index!$D$40:$D${}'.format(rownum0 + 9),
+                           'values': '=Community_Index!$E$40:$E${}'.format(rownum0 + 9),
+                           'data_labels': {'value': True, 'font': {'rotation': -90}}, })
+        chart1.add_series({'name': "{}".format(calendar.month_abbr[Month2].upper()),
+                           'categories': '=Community_Index!$D$40:$D${}'.format(rownum0 + 9),
+                           'values': '=Community_Index!$F$40:$F${}'.format(rownum0 + 9),
+                           'data_labels': {'value': True, 'font': {'rotation': -90}}, })
+        chart1.add_series({'name': "{}".format(calendar.month_abbr[Month3].upper()),
+                           'categories': '=Community_Index!$D$40:$D${}'.format(rownum0 + 9),
+                           'values': '=Community_Index!$G$40:$G${}'.format(rownum0 + 9),
+                           'data_labels': {'value': True, 'font': {'rotation': -90}}, })
+    else:
+        chart1 = workbook.add_chart({'type': 'column'})
+        chart1.set_title({'name': 'TOP 10 MOST POPULAR REPORTS FOR SUPPLIER COMMUNITY'})
+        chart1.add_series({'name': "{}".format(calendar.month_abbr[Month1].upper()),
+                           'categories': '=Community_Index!$D$40:$D$49',
+                           'values': '=Community_Index!$E$40:$E$49',
+                           'data_labels': {'value': True, 'font': {'rotation': -90}}, })
+        chart1.add_series({'name': "{}".format(calendar.month_abbr[Month2].upper()),
+                           'categories': '=Community_Index!$D$40:$D$49',
+                           'values': '=Community_Index!$F$40:$F$49',
+                           'data_labels': {'value': True, 'font': {'rotation': -90}}, })
+        chart1.add_series({'name': "{}".format(calendar.month_abbr[Month3].upper()),
+                           'categories': '=Community_Index!$D$40:$D$49',
+                           'values': '=Community_Index!$G$40:$G$49',
+                           'data_labels': {'value': True, 'font': {'rotation': -90}}, })
+    chart1.set_style(2)
+    chart1.set_x_axis({'num_font': {'size': 8}})
+    chart1.set_y_axis({'name': 'Number of Reports Run'})
+    chart1.set_size({'width': 945, 'height': 350})
+    chart1.set_legend({'position': 'bottom'})
+    worksheet5.insert_chart('J38', chart1)
+    ###Chart3 - bottom 5
+    if rownum0 < 6:
+        chart1 = workbook.add_chart({'type': 'column'})
+        chart1.set_title({'name': 'LEAST POPULAR REPORTS FOR SUPPLIER COMMUNITY'})
+        chart1.add_series({'name': "{}".format(calendar.month_abbr[Month1].upper()),
+                           'categories': '=Community_Index!$D$7:$D${}'.format(rownum0 + 5),
+                           'values': '=Community_Index!$E$7:$E${}'.format(rownum0 + 5),
+                           'data_labels': {'value': True, 'font': {'rotation': -45}}, })
+        chart1.add_series({'name': "{}".format(calendar.month_abbr[Month2].upper()),
+                           'categories': '=Community_Index!$D$7:$D${}'.format(rownum0 + 5),
+                           'values': '=Community_Index!$F$7:$F${}'.format(rownum0 + 5),
+                           'data_labels': {'value': True, 'font': {'rotation': -45}}, })
+        chart1.add_series({'name': "{}".format(calendar.month_abbr[Month3].upper()),
+                           'categories': '=Community_Index!$D$7:$D${}'.format(rownum0 + 5),
+                           'values': '=Community_Index!$G$7:$G${}'.format(rownum0 + 5),
+                           'data_labels': {'value': True, 'font': {'rotation': -45}}, })
+    else:
+        chart1 = workbook.add_chart({'type': 'column'})
+        chart1.set_title({'name': 'LEAST POPULAR REPORTS FOR SUPPLIER COMMUNITY'})
+        chart1.add_series({'name': "{}".format(calendar.month_abbr[Month1].upper()),
+                           'categories': '=Community_Index!$D${}:$D${}'.format(rownum0 + 1, rownum0 + 10),
+                           'values': '=Community_Index!$E${}:$E${}'.format(rownum0 + 1, rownum0 + 10),
+                           'data_labels': {'value': True, 'font': {'rotation': -90}}, })
+        chart1.add_series({'name': "{}".format(calendar.month_abbr[Month2].upper()),
+                           'categories': '=Community_Index!$D${}:$D${}'.format(rownum0 + 1, rownum0 + 10),
+                           'values': '=Community_Index!$F${}:$F${}'.format(rownum0 + 1, rownum0 + 10),
+                           'data_labels': {'value': True, 'font': {'rotation': -90}}, })
+        chart1.add_series({'name': "{}".format(calendar.month_abbr[Month3].upper()),
+                           'categories': '=Community_Index!$D${}:$D${}'.format(rownum0 + 1, rownum0 + 10),
+                           'values': '=Community_Index!$G${}:$G${}'.format(rownum0 + 1, rownum0 + 10),
+                           'data_labels': {'value': True, 'font': {'rotation': -90}}, })
+    chart1.set_style(2)
+    chart1.set_x_axis({'num_font': {'size': 8}})
+    chart1.set_y_axis({'name': 'Number of Reports Run'})
+    chart1.set_size({'width': 945, 'height': 350})
+    chart1.set_legend({'position': 'bottom'})
+    worksheet5.insert_chart('J57', chart1)
+    #############################################################
+    mysel = c.execute(CommunityIndex)
+    names = list(map(lambda x: x[0], mysel.description))
+    col = 0
+    for i in names:
+        worksheet4.write(0, col,i)
+        col +=1
+    for i, row in enumerate(mysel):
+        col = 0
+        i += 1
+        for j, value in enumerate(row):
+            if j == 2:
+                Month_name = str((calendar.month_abbr[row[j]].upper()))
+                worksheet4.write(i, col, Month_name)
+            elif j == 1:
+                worksheet4.write(i, col, "20" + str(row[j]))
+            else:
+                worksheet4.write(i, col, row[j])
+            col += 1
+    myothersel = c.execute(SupplierIndex)
+    names2 = list(map(lambda x: x[0], myothersel.description))
+    for i in names2:
+        worksheet4.write(0, col,i)
+        col +=1
+    for i, row in enumerate(myothersel):
+        col = 5
+        i += 1
+        for j, value in enumerate(row):
+            if j == 2:
+                Month_name = str((calendar.month_abbr[row[j]].upper()))
+                worksheet4.write(i, col, Month_name)
+            elif j == 1:
+                worksheet4.write(i, col, "20" + str(row[j]))
+            else:
+                worksheet4.write(i, col, row[j])
+            col += 1
+    #Formula
+    for row_num in range(1, i + 1):
+        ID_cell = xl_rowcol_to_cell(row_num, 8)
+        ID_cell2 = xl_rowcol_to_cell(row_num, 6)
+        ID_cell3 =xl_rowcol_to_cell(row_num, 7)
+        Report_cell = xl_rowcol_to_cell(row_num, 9)
+        Report_cell2 = xl_rowcol_to_cell(row_num, 6)
+        Report_cell3 = xl_rowcol_to_cell(row_num, 7)
+        Index_Cell = xl_rowcol_to_cell(row_num, 11)
+        Index_Cell2 = xl_rowcol_to_cell(row_num, 10)
+        Community_cell = xl_rowcol_to_cell(row_num, 6)
+        Community_ID_cell = xl_rowcol_to_cell(row_num, 7)
+        Supplier_ID_cell = xl_rowcol_to_cell(row_num, 8)
+        Supplier_Report_cell = xl_rowcol_to_cell(row_num, 9)
+        formula = '={}/sumifs(D:D,B:B,{},C:C,{})'.format(ID_cell,ID_cell2,ID_cell3)
+        formula2 = '={}/sumifs(E:E,B:B,{},C:C,{})'.format(Report_cell, Report_cell2, Report_cell3)
+        formula3 = '=Round(({}/{})*100,0)'.format(Index_Cell, Index_Cell2)
+        formula4 = '=ROUND(SUMIFS(E:E,B:B,{},C:C,{})/SUMIFS(D:D,B:B,{},C:C,{}),0)'.\
+            format(Community_cell,Community_ID_cell,Community_cell,Community_ID_cell)
+        formula5 = '=Round(({}/{}),0)'.format(Supplier_Report_cell, Supplier_ID_cell)
+        worksheet4.write(row_num, 10, formula)
+        worksheet4.write(0, 10, "ID INDEX")
+        worksheet4.write(row_num, 11, formula2)
+        worksheet4.write(0, 11, "REPORT INDEX")
+        worksheet4.write(row_num, 12, formula3)
+        worksheet4.write(0, 12, "INDEX TO COMMUNITY")
+        worksheet4.write(row_num, 13, formula4)
+        worksheet4.write(0, 13, "COMMUNITY Community average")
+        worksheet4.write(row_num, 14, formula5)
+        worksheet4.write(0, 14, "Supplier Average")
+    worksheet4.hide()
+    #############################################################
+    #Community Graph
+    cell_format = workbook.add_format()
+    cell_format.set_font_size(30)
+    cell_format.set_align('center')
+    cell_format.set_align('vcenter')
+    cell_format.set_font_color('#FFFFFF')
+    cell_format.set_bg_color('009900')
+    worksheet5.merge_range("A1:P4", "{} COMPARED TO SUPPLIER COMMUNITY".format(Supplier),cell_format)
+    chart1 = workbook.add_chart({'type': 'column'})
+    chart2 = workbook.add_chart({'type': 'line'})
+    chart1.set_title({'name': 'SOBEYS USAGE TREND' + "\n" + '(REPORTS RUN VS AVERAGE REPORTS RUN PER USER)'})
+    chart1.add_series({'name': "{}".format(Supplier.upper()),
+                            'categories': '=Community_Data!$G$2:$H${}'.format(i+1),
+                            'values': '=Community_Data!$J$2:$J${}'.format(i+1),
+                            'data_labels': {'value': True, 'font': {'rotation': 0}, 'position': 'center'}, })
+    chart2.add_series({'name': "AVERAGE REPORT PER USER",
+                            'categories': '=Community_Data!$G$2:$H${}'.format(i+1),
+                            'values': '=Community_Data!$O$2:$O${}'.format(i+1),
+                            'y2_axis': True,
+                            'data_labels': {'value': True, 'font': {'rotation': 0}, 'position': 'center', }})
+    chart1.set_style(2)
+    chart1.set_x_axis({'name' : 'Time (Month/Year)','num_font': {'size': 10}})
+    chart1.set_y_axis({'name': 'Reports Run by {}'.format(Supplier)})
+    chart2.set_y2_axis({'name': 'Index of {} to Community'.format(Supplier)})
+    chart1.set_size({'width': 1350, 'height': 300})
+    chart1.set_legend({'position': 'bottom'})
+    chart1.combine(chart2)
+    worksheet5.hide_gridlines(2)
+    worksheet5.insert_chart('B6', chart1)
+    ###Average Report per user
+    chart1 = workbook.add_chart({'type': 'line'})
+    chart1.set_title({'name': 'SOBEYS VS SUPPLIER COMMUNITY' + "\n" + '(AVERAGE REPORT RUN PER USER)'})
+    chart1.add_series({'name': "{}".format(Supplier.upper()),
+                            'categories': '=Community_Data!$G$2:$H${}'.format(i+1),
+                            'values': '=Community_Data!$O$2:$O${}'.format(i+1),
+                            'data_labels': {'value': True, 'font': {'rotation': 0}, 'position': 'center'}, })
+    chart1.add_series({'name': "SUPPLIER COMMUNITY",
+                            'categories': '=Community_Data!$G$2:$H${}'.format(i+1),
+                            'values': '=Community_Data!$N$2:$N${}'.format(i+1),
+                            'data_labels': {'value': True, 'font': {'rotation': 0}, 'position': 'center', }})
+    chart1.set_style(2)
+    chart1.set_x_axis({'name' : 'Time (Month/Year)','num_font': {'size': 10}})
+    chart1.set_y_axis({'name': 'Average reports per ID'})
+    chart1.set_size({'width': 1350, 'height': 300})
+    chart1.set_legend({'position': 'bottom'})
+    worksheet5.hide_gridlines(2)
+    worksheet5.insert_chart('B22', chart1)
+#############################################################
+    ###Report Ran by community vs sobeys
+    chart1 = workbook.add_chart({'type': 'line'})
+    chart1.set_title({'name': 'SOBEYS VS SUPPLIER COMMUNITY' + "\n" + '(REPORT COUNT BY MONTH)'})
+    chart1.add_series({'name': "{}".format(Supplier.upper()),
+                            'categories': '=Community_Data!$G$2:$H${}'.format(i+1),
+                            'values': '=Community_Data!$J$2:$J${}'.format(i+1),
+                            'data_labels': {'value': True, 'font': {'rotation': 0}, 'position': 'center'}, })
+    chart1.add_series({'name': "SUPPLIER COMMUNITY",
+                            'categories': '=Community_Data!$G$2:$H${}'.format(i+1),
+                            'values': '=Community_Data!$E$2:$E${}'.format(i+1),
+                            'data_labels': {'value': True, 'font': {'rotation': 0}, 'position': 'center', }})
+    chart1.set_style(2)
+    chart1.set_x_axis({'name' : 'Time (Month/Year)','num_font': {'size': 10}})
+    chart1.set_y_axis({'name': 'Reports Run'})
+    chart1.set_size({'width': 1350, 'height': 300})
+    chart1.set_legend({'position': 'bottom'})
+    worksheet6.hide_gridlines(2)
+    worksheet6.insert_chart('B5', chart1)
+
+    CenterAlign = workbook.add_format()
+    CenterAlign.set_align('right')
+    CenterAlign.set_bold(True)
+
+    SobeysTop5 = workbook.add_format()
+    SobeysTop5.set_font_size(12)
+    SobeysTop5.set_align('center')
+    SobeysTop5.set_align('vcenter')
+    SobeysTop5.set_font_color('#FFFFFF')
+    SobeysTop5.set_bg_color('#FFCC00')
+
+    GreyCell = workbook.add_format()
+    GreyCell.set_bg_color('#C0C0C0')
+
+    TopBorder = workbook.add_format()
+    TopBorder.set_top(1)
+    BottomBorder = workbook.add_format()
+    BottomBorder.set_bottom(1)
+
+    worksheet6.conditional_format("F22:I22", {'type': 'no_errors',
+                                              'format': SobeysTop5,
+                                              })
+    worksheet6.conditional_format("F22:I22", {'type': 'no_errors',
+                                              'format': TopBorder,
+                                              })
+    worksheet6.conditional_format("F27:I27", {'type': 'no_errors',
+                                              'format': BottomBorder,
+                                              })
+    worksheet6.conditional_format("L22:P22", {'type': 'no_errors',
+                                              'format': TopBorder,
+                                              })
+    worksheet6.conditional_format("L27:P27", {'type': 'no_errors',
+                                              'format': BottomBorder,
+                                              })
+
+    worksheet6.conditional_format("F23:I23", {'type': 'no_errors',
+                                              'format': GreyCell,
+                                              })
+    worksheet6.conditional_format("F25:I25", {'type': 'no_errors',
+                                              'format': GreyCell,
+                                              })
+    worksheet6.conditional_format("F27:I27", {'type': 'no_errors',
+                                              'format': GreyCell,
+                                              })
+    worksheet6.conditional_format("L23:P23", {'type': 'no_errors',
+                                              'format': GreyCell,
+                                              })
+    worksheet6.conditional_format("L25:P25", {'type': 'no_errors',
+                                              'format': GreyCell,
+                                              })
+    worksheet6.conditional_format("L27:P27", {'type': 'no_errors',
+                                              'format': GreyCell,
+                                              })
+    worksheet6.merge_range("F21:I21", "Sobeys Top 5 Reports - Latest 3 Months",CenterAlign)
+    worksheet6.merge_range("F22:G22", "Report Name",SobeysTop5)
+    worksheet6.merge_range("H22:I22", "Total Reports Run",CenterAlign)
+    worksheet6.write("F23", '=IF(Report_Sum!B7="TOTAL","",Report_Sum!B7)')
+    worksheet6.write("F24", '=IF(Report_Sum!B8="TOTAL","",Report_Sum!B8)')
+    worksheet6.write("F25", '=IF(Report_Sum!B9="TOTAL","",Report_Sum!B9)')
+    worksheet6.write("F26", '=IF(Report_Sum!B10="TOTAL","",Report_Sum!B10)')
+    worksheet6.write("F27", '=IF(Report_Sum!B11="TOTAL","",Report_Sum!B11)')
+    worksheet6.write("I23", '=IF(Report_Sum!F7="TOTAL","",Report_Sum!F7)')
+    worksheet6.write("I24", '=IF(Report_Sum!F8="TOTAL","",Report_Sum!F8)')
+    worksheet6.write("I25", '=IF(Report_Sum!F9="TOTAL","",Report_Sum!F9)')
+    worksheet6.write("I26", '=IF(Report_Sum!F10="TOTAL","",Report_Sum!F10)')
+    worksheet6.write("I27", '=IF(Report_Sum!F11="TOTAL","",Report_Sum!F11)')
+
+    SupplierTop5 = workbook.add_format()
+    SupplierTop5.set_font_size(12)
+    SupplierTop5.set_align('center')
+    SupplierTop5.set_align('vcenter')
+    SupplierTop5.set_font_color('#FFFFFF')
+    SupplierTop5.set_bg_color('#FF6600')
+
+    worksheet6.conditional_format("L22:P22", {'type': 'no_errors',
+                                              'format': SupplierTop5})
+
+    worksheet6.merge_range("L21:P21", "Suppliers Top 5 Reports - Latest 3 Months",CenterAlign)
+    worksheet6.merge_range("L22:M22", "Report Name")
+    worksheet6.merge_range("O22:P22", "Total Reports Run",CenterAlign)
+    worksheet6.write("L23", '=IF(Community_Index!D40="TOTAL","",Community_Index!D40)')
+    worksheet6.write("L24", '=IF(Community_Index!D41="TOTAL","",Community_Index!D41)')
+    worksheet6.write("L25", '=IF(Community_Index!D42="TOTAL","",Community_Index!D42)')
+    worksheet6.write("L26", '=IF(Community_Index!D43="TOTAL","",Community_Index!D43)')
+    worksheet6.write("L27", '=IF(Community_Index!D44="TOTAL","",Community_Index!D44)')
+    worksheet6.write("P23", '=IF(Community_Index!H40="TOTAL","",Community_Index!H40)')
+    worksheet6.write("P24", '=IF(Community_Index!H41="TOTAL","",Community_Index!H41)')
+    worksheet6.write("P25", '=IF(Community_Index!H42="TOTAL","",Community_Index!H42)')
+    worksheet6.write("P26", '=IF(Community_Index!H43="TOTAL","",Community_Index!H43)')
+    worksheet6.write("P27", '=IF(Community_Index!H44="TOTAL","",Community_Index!H44)')
+#############################################################
+    c.execute(Query)
+    mysel = c.execute(Query)
+    names = list(map(lambda x: x[0], mysel.description))
+    col = 0
+    for i in names:
+        worksheet.write(0, col,i)
+        col +=1
+    for i, row in enumerate(mysel):
+        col = 0
+        i += 1
+        for j, value in enumerate(row):
+            worksheet.write(i, col, row[j])
+            col += 1
+    worksheet.hide()
+    #############################################################
+    #REPORT SUMMARY
+    c.execute(Query2)
+    names = list(map(lambda x: x[0], mysel.description))
+    col = 1
+    rownum = 1
+    cell_format = workbook.add_format()
+    cell_format.set_font_size(30)
+    cell_format.set_align('center')
+    cell_format.set_align('vcenter')
+    cell_format.set_font_color('#FFFFFF')
+    cell_format.set_bg_color('009900')
+    worksheet2.merge_range("A1:V4", "REPORT SUMMARY FOR {}".format(Supplier),cell_format)
+    for i in names:
+        worksheet2.write(5, col, i)
+        col += 1
+    for i, row in enumerate(mysel):
+        col = 1
+        i += 6
+        rownum += 1
+        for j, value in enumerate(row):
+            worksheet2.write(i, col, row[j])
+            col += 1
+    cell_format2 = workbook.add_format()
+    cell_format2.set_align('center')
+
+    for row_num in range(5,i+1):
+        cell = xl_rowcol_to_cell(row_num-1, 0)
+        formula = '=If({}="RANK",1,{}+1)'.format(cell, cell)
+        worksheet2.write(row_num, 0, formula,cell_format2)
+        worksheet2.write(5, 0, "RANK")
+
+    worksheet2.write(i+1, 1, "TOTAL")
+    formula = '=" " & Sum(C7:C{})'.format(i+1)
+    formula2 = '=" " & Sum(D7:D{})'.format(i+1)
+    formula3 = '=" " & Sum(E7:E{})'.format(i+1)
+    formula4 = '=" " & Sum(F7:F{})'.format(i+1)
+
+    worksheet2.write(i+1, 2, formula, cell_format2)
+    worksheet2.write(i+1, 3, formula2, cell_format2)
+    worksheet2.write(i+1, 4, formula3, cell_format2)
+    worksheet2.write(i+1, 5, formula4, cell_format2)
+
+    border_format = workbook.add_format({'border': 1,'align': 'left','font_size': 10})
+    worksheet2.conditional_format('A5:G{}'.format(rownum+10), {'type': 'no_blanks', 'format': border_format})
+    worksheet2.set_column(2, 4, 5)
+    worksheet2.set_column(1, 1, 35)
+    worksheet2.conditional_format('C1:E1000', {'type': '3_color_scale'})
+    worksheet2.conditional_format('F1:G1000', {'type': 'data_bar'})
+    worksheet2.set_column(0, 0, 5)
+    worksheet2.set_column(5, 5, 6.5)
+    worksheet2.set_column(6, 6, 6.5)
+    worksheet2.hide_gridlines(2)
+
+    chart1 = workbook.add_chart({'type': 'pie'})
+    chart1.set_title({'name': 'SHARE OF REPORTS RUN' + "\n" + ' BY BUSINESS UNIT'})
+    chart1.add_series({'name': "EVP",
+                       'categories': '=SLV_INDEX_Data!$J$2:$J${}'.format(PieLength_EVP + 1),
+                       'values': '=SLV_INDEX_Data!$N$2:$N${}'.format(PieLength_EVP + 1),
+                       'data_labels': {'value': True,
+                                       'font': {'rotation': 0},
+                                       'position': 'best_fit',
+                                       'percentage': True,
+                                       'category': True,
+                                       'leader_lines': True
+                                       }})
+
+    chart1.set_x_axis({'num_font': {'size': 10}})
+    chart1.set_y_axis({'name': 'Number of Reports Run'})
+    chart1.set_size({'width': 750, 'height': 500})
+    chart1.set_legend({'position': 'bottom'})
+    worksheet2.insert_chart('I7', chart1)
+
+    chart1 = workbook.add_chart({'type': 'pie'})
+    chart1.set_title({'name': 'SHARE OF REPORTS RUN' + "\n" + 'BY REGION'})
+    chart1.add_series({'name': "EVP",
+                       'categories': '=SLV_INDEX_Data!$AA$2:$AA${}'.format(PieLength + 1),
+                       'values': '=SLV_INDEX_Data!$AB$2:$AB${}'.format(PieLength + 1),
+                       'data_labels': {'value': True,
+                                       'font': {'rotation': 0},
+                                       'position': 'best_fit',
+                                       'percentage': True,
+                                       'category': True,
+                                       'leader_lines': True
+                                       }})
+    chart1.set_x_axis({'num_font': {'size': 10}})
+    chart1.set_y_axis({'name': 'Number of Reports Run'})
+    chart1.set_size({'width': 750, 'height': 500})
+    chart1.set_legend({'position': 'bottom'})
+    worksheet2.insert_chart('I85', chart1)
+
+    chart1 = workbook.add_chart({'type': 'pie'})
+    chart1.set_title({'name': 'SHARE OF REPORTS RUN' + "\n" + 'BY MONTH'})
+    chart1.add_series({'name': "EVP",
+                       'categories': '=SLV_INDEX_Data!$AD$2:$AD${}'.format(PieLength_Month + 1),
+                       'values': '=SLV_INDEX_Data!$AE$2:$AE${}'.format(PieLength_Month + 1),
+                       'data_labels': {'value': True,
+                                       'font': {'rotation': 0},
+                                       'position': 'best_fit',
+                                       'percentage': True,
+                                       'category': True,
+                                       'leader_lines': True
+                                       }})
+    chart1.set_x_axis({'num_font': {'size': 10}})
+    chart1.set_y_axis({'name': 'Number of Reports Run'})
+    chart1.set_size({'width': 750, 'height': 500})
+    chart1.set_legend({'position': 'bottom'})
+
+    worksheet2.insert_chart('I59', chart1)
+
+    chart1 = workbook.add_chart({'type': 'column'})
+    chart1.set_title({'name': 'SHARE OF REPORTS RUN' + "\n" + 'BY DEPARTMENT'})
+    chart1.add_series({'name': "DEPARTMENT",
+                       'categories': '=SLV_INDEX_Data!$AG$2:$AG${}'.format(PieLength_Dept + 1),
+                       'values': '=SLV_INDEX_Data!$AH$2:$AH${}'.format(PieLength_Dept + 1),
+                       'data_labels': {'value': True,
+                                       'font': {'rotation': 0},
+                                       }})
+    chart1.set_x_axis({'num_font': {'size': 10}})
+    chart1.set_y_axis({'name': 'Number of Reports Run'})
+    chart1.set_size({'width': 750, 'height': 500})
+    chart1.set_legend({'position': 'bottom'})
+    worksheet2.set_column(7,7,2)
+    worksheet2.insert_chart('I33', chart1)
+    #############################################################
+    #User Sum
+    c.execute(QueryUserSum)
+    names = list(map(lambda x: x[0], mysel.description))
+    col = 1
+    rownum = 1
+    cell_format = workbook.add_format()
+    cell_format.set_font_size(30)
+    cell_format.set_align('center')
+    cell_format.set_align('vcenter')
+    cell_format.set_font_color('#FFFFFF')
+    cell_format.set_bg_color('009900')
+    worksheet3.merge_range("A1:X4", "USER SUMMARY FOR {}".format(Supplier),cell_format)
+    for i in names:
+        worksheet3.write(5, col, i)
+        col += 1
+    for i, row in enumerate(mysel):
+        col = 1
+        i += 6
+        rownum += 1
+        for j, value in enumerate(row):
+            worksheet3.write(i, col, row[j])
+            col += 1
+
+    cell_format3 = workbook.add_format()
+    cell_format3.set_align('center')
+    for row_num in range(5, i + 1):
+        cell = xl_rowcol_to_cell(row_num - 1, 0)
+        formula = '=If({}="RANK",1,{}+1)'.format(cell, cell)
+        worksheet3.write(row_num, 0, formula, cell_format2)
+        worksheet3.write(5, 0, "RANK")
+
+    worksheet3.write(i + 1, 1, "TOTAL")
+    formula = '=" " & Sum(F7:F{})'.format(i + 1)
+    formula2 = '=" " & Sum(G7:G{})'.format(i + 1)
+    formula3 = '=" " & Sum(H7:H{})'.format(i + 1)
+    formula4 = '=" " & Sum(I7:I{})'.format(i + 1)
+
+    worksheet3.write(i + 1, 2, " ")
+    worksheet3.write(i + 1, 3, " ")
+    worksheet3.write(i + 1, 4, " ")
+
+    worksheet3.write(i + 1, 5, formula, cell_format2)
+    worksheet3.write(i + 1, 6, formula2, cell_format2)
+    worksheet3.write(i + 1, 7, formula3, cell_format2)
+    worksheet3.write(i + 1, 8, formula4, cell_format2)
+
+    border_format = workbook.add_format({'border': 1,'align': 'left','font_size': 10})
+    worksheet3.conditional_format('A5:I{}'.format(rownum+10), {'type': 'no_blanks',
+                                                               'format': border_format})
+    worksheet3.set_column(5, 7, 3.89)
+    worksheet3.set_column(8, 8, 6)
+    worksheet3.conditional_format('F1:H1000', {'type': '3_color_scale'})
+    worksheet3.conditional_format('I1:I1000', {'type': 'data_bar'})
+    worksheet3.set_column(0, 0, 5)
+    worksheet3.set_column(1, 1, 20)
+    worksheet3.set_column(2, 3, 8.5)
+    worksheet3.set_column(4, 4, 10)
+    worksheet3.set_column(9, 9, 1)
+    worksheet3.hide_gridlines(2)
+
+    chart1 = workbook.add_chart({'type': 'pie'})
+    chart1.set_title({'name': 'SHARE OF REPORTS RUN' + "\n" + ' BY BUSINESS UNIT'})
+    chart1.add_series({'name': "EVP",
+                           'categories': '=SLV_INDEX_Data!$J$2:$J${}'.format(PieLength_EVP + 1),
+                           'values': '=SLV_INDEX_Data!$N$2:$N${}'.format(PieLength_EVP +1),
+                           'data_labels': {'value': True,
+                                           'font': {'rotation': 0},
+                                           'position': 'best_fit',
+                                           'percentage': True,
+                                           'category' : True,
+                                           'leader_lines': True
+                                           } })
+
+    chart1.set_x_axis({'num_font': {'size': 10}})
+    chart1.set_y_axis({'name': 'Number of Reports Run'})
+    chart1.set_size({'width': 750, 'height': 500})
+    chart1.set_legend({'position': 'bottom'})
+    worksheet3.insert_chart('K7', chart1)
+
+    chart1 = workbook.add_chart({'type': 'pie'})
+    chart1.set_title({'name': 'SHARE OF REPORTS RUN' + "\n" + 'BY REGION'})
+    chart1.add_series({'name': "EVP",
+                           'categories': '=SLV_INDEX_Data!$AA$2:$AA${}'.format(PieLength + 1),
+                           'values': '=SLV_INDEX_Data!$AB$2:$AB${}'.format(PieLength +1),
+                           'data_labels': {'value': True,
+                                           'font': {'rotation': 0},
+                                           'position': 'best_fit',
+                                           'percentage': True,
+                                           'category' : True,
+                                           'leader_lines': True
+                                           } })
+    chart1.set_x_axis({'num_font': {'size': 10}})
+    chart1.set_y_axis({'name': 'Number of Reports Run'})
+    chart1.set_size({'width': 750, 'height': 500})
+    chart1.set_legend({'position': 'bottom'})
+    worksheet3.insert_chart('K85', chart1)
+
+    chart1 = workbook.add_chart({'type': 'pie'})
+    chart1.set_title({'name': 'SHARE OF REPORTS RUN' +"\n" + 'BY MONTH'})
+    chart1.add_series({'name': "EVP",
+                           'categories': '=SLV_INDEX_Data!$AD$2:$AD${}'.format(PieLength_Month + 1),
+                           'values': '=SLV_INDEX_Data!$AE$2:$AE${}'.format(PieLength_Month +1),
+                           'data_labels': {'value': True,
+                                           'font': {'rotation': 0},
+                                           'position': 'best_fit',
+                                           'percentage': True,
+                                           'category' : True,
+                                           'leader_lines': True
+                                           } })
+    chart1.set_x_axis({'num_font': {'size': 10}})
+    chart1.set_y_axis({'name': 'Number of Reports Run'})
+    chart1.set_size({'width': 750, 'height': 500})
+    chart1.set_legend({'position': 'bottom'})
+    worksheet3.insert_chart('K59', chart1)
+    chart1 = workbook.add_chart({'type': 'pie'})
+
+    chart1.set_title({'name': 'SHARE OF REPORTS RUN' +"\n" + 'BY DEPARTMENT'})
+    chart1.add_series({'name': "DEPARTMENT",
+                           'categories': '=SLV_INDEX_Data!$AG$2:$AG${}'.format(PieLength_Dept + 1),
+                           'values': '=SLV_INDEX_Data!$AH$2:$AH${}'.format(PieLength_Dept +1),
+                           'data_labels': {'value': True,
+                                           'font': {'rotation': 0},
+                                           'position': 'best_fit',
+                                           'percentage': True,
+                                           'category' : True,
+                                           'leader_lines': True
+                                           } })
+    chart1.set_x_axis({'num_font': {'size': 10}})
+    chart1.set_y_axis({'name': 'Number of Reports Run'})
+    chart1.set_size({'width': 750, 'height': 500})
+    chart1.set_legend({'position': 'bottom'})
+    worksheet3.insert_chart('K33', chart1)
+    worksheet9.hide()
+    workbook.close()
+    ##
+##########################################################################################################################
+Company_Name = c.execute('select * from Company_Table where Company_Name in ("SOBEYS")')
 data = c.fetchall()
 for v in data:
     try:
         print(v[0])
-        create_Supplier_excel(v[0],datetime.now().month - 3,
+        create_Supplier_excel(v[0],
+                              datetime.now().month - 3,
                               datetime.now().month - 2,
                               datetime.now().month - 1,
-                              datetime.now().year,
-                              datetime.now().month - 1)
+                              datetime.now().year)
     except:
         pass
 
